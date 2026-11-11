@@ -30,8 +30,14 @@ def one(root, pattern):
     hits = sorted(root.glob(pattern))
     return str(hits[0]) if hits else None
 
+def dirs(root, pattern):  # model folders only, not the fetch script's .done markers
+    return [d for d in sorted(root.glob(pattern)) if d.is_dir()]
+
+def first_dir(root, pattern):
+    return next(iter(dirs(root, pattern)), None)
+
 def norm(s):
-    s = s.lower().replace("'", "")
+    s = s.lower().replace("'", "").replace("%", " percent").replace("per cent", "percent")
     nums = {"forty": "40", "ten": "10", "forty two": "42"}
     for w, n in nums.items():
         s = re.sub(rf"\b{w}\b", n, s)
@@ -56,13 +62,13 @@ def resample16k(x, sr):
 # ---------- TTS ----------
 def tts_engines(m, threads):
     eng = {}
-    for d in sorted(m.glob("vits-piper-*")):
+    for d in dirs(m, "vits-piper-*"):
         cfg = sherpa_onnx.OfflineTtsConfig(model=sherpa_onnx.OfflineTtsModelConfig(
             vits=sherpa_onnx.OfflineTtsVitsModelConfig(model=one(d, "*.onnx"), tokens=str(d / "tokens.txt"),
                                                       data_dir=str(d / "espeak-ng-data")),
             num_threads=threads))
         eng[d.name] = sherpa_onnx.OfflineTts(cfg)
-    k = next(iter(sorted(m.glob("kokoro-en*"))), None)
+    k = first_dir(m, "kokoro-en*")
     if k:
         cfg = sherpa_onnx.OfflineTtsConfig(model=sherpa_onnx.OfflineTtsModelConfig(
             kokoro=sherpa_onnx.OfflineTtsKokoroModelConfig(model=str(k / "model.onnx"), voices=str(k / "voices.bin"),
@@ -87,24 +93,20 @@ def bench_tts(eng, out):
 # ---------- ASR ----------
 def asr_engines(m, threads):
     eng = {}
-    p = next(iter(sorted(m.glob("*parakeet*"))), None)
+    p = first_dir(m, "*parakeet*")
     if p:
         eng[p.name] = sherpa_onnx.OfflineRecognizer.from_transducer(
             encoder=one(p, "encoder*.onnx"), decoder=one(p, "decoder*.onnx"), joiner=one(p, "joiner*.onnx"),
             tokens=str(p / "tokens.txt"), model_type="nemo_transducer", num_threads=threads)
-    mo = next(iter(sorted(m.glob("*moonshine*"))), None)
-    if mo:
-        try:
-            eng[mo.name] = sherpa_onnx.OfflineRecognizer.from_moonshine(
-                preprocessor=one(mo, "preprocess*.onnx"), encoder=one(mo, "encode*.onnx"),
-                uncached_decoder=one(mo, "uncached_decode*.onnx"), cached_decoder=one(mo, "cached_decode*.onnx"),
-                tokens=str(mo / "tokens.txt"), num_threads=threads)
-        except Exception as e:  # newer moonshine packaging may need a different loader
-            print(f"skip {mo.name}: {e}")
+    mo = first_dir(m, "*moonshine*")
+    if mo:  # 2026 Moonshine packages: encoder + merged decoder (.ort)
+        eng[mo.name] = sherpa_onnx.OfflineRecognizer.from_moonshine_v2(
+            encoder=one(mo, "encoder*"), decoder=one(mo, "decoder*"),
+            tokens=str(mo / "tokens.txt"), num_threads=threads)
     return eng
 
 def streaming_engine(m, threads):
-    z = next(iter(sorted(m.glob("*streaming-zipformer-en-20M*"))), None)
+    z = first_dir(m, "*streaming-zipformer-en-20M*")
     if not z:
         return None, None
     return z.name, sherpa_onnx.OnlineRecognizer.from_transducer(
@@ -131,6 +133,7 @@ def bench_streaming(name, rec, clips):
     tot_audio = tot_t = 0; errs = []; worst = []
     for text, x in clips:
         s = rec.create_stream(); t = time.time()
+        x = np.concatenate([np.zeros(4800, np.float32), x])  # 0.3 s lead-in, as a live mic always has
         for i in range(0, len(x), 1600):  # 100 ms chunks like a live mic
             s.accept_waveform(16000, x[i:i + 1600])
             while rec.is_ready(s): rec.decode_stream(s)
@@ -145,13 +148,13 @@ def bench_streaming(name, rec, clips):
 
 # ---------- KWS ----------
 def bench_kws(m, threads, tts, out):
-    k = next(iter(sorted(m.glob("*kws-zipformer-gigaspeech*"))), None)
+    k = first_dir(m, "*kws-zipformer-gigaspeech*")
     if not k:
         return {}
     kw_file = out / "keywords.txt"
     toks = sherpa_onnx.text2token(["HEY SPARKY"], tokens=str(k / "tokens.txt"), tokens_type="bpe",
                                   bpe_model=str(k / "bpe.model"))
-    kw_file.write_text(" ".join(toks[0]) + " @HEY_SPARKY\n")
+    kw_file.write_text(" ".join(toks[0]) + " @HEY_SPARKY\n", encoding="utf-8")
     spot = sherpa_onnx.KeywordSpotter(
         tokens=str(k / "tokens.txt"), encoder=one(k, "encoder*int8.onnx"), decoder=one(k, "decoder*.onnx"),
         joiner=one(k, "joiner*int8.onnx"), keywords_file=str(kw_file), num_threads=1,

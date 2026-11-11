@@ -1,0 +1,6 @@
+# sherpa-onnx 2.x dropped the bundled espeak-ng frontend that Piper voices need; stay on 1.x.
+sherpa-onnx==1.13.8
+sentencepiece  # text2token for wake-word keywords
+pypinyin       # imported unconditionally by sherpa_onnx.text2token
+soundfile
+numpy
