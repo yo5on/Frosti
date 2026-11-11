@@ -35,6 +35,7 @@ After SPARKY replies, the mic stays open for 6 s so you can follow up without th
 |---|---|---|
 | Fast path (rules) | "how much battery does the phone have" → phone tool | 0.07 s |
 | LLM (Gemma 4 E4B) | "what is the capital of France" | 6.9 s |
+| Voice, wake word | "Hey Sparky, what's my laptop RAM usage?" spoken to the phone → answered aloud | verified by the user |
 
 Tools:
 - **Phone:** open an app, battery / RAM / storage / temperature, brightness, volume.
