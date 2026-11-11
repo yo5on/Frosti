@@ -115,7 +115,7 @@ Each pick is sized to an **i7-8650U with ~5 GB of RAM budget**, not chosen for p
 | Role | Primary pick | Alternative | Why |
 |---|---|---|---|
 | **Inference runtime** | **llama.cpp `llama-server`** | Ollama (fine for quick trials) | Direct control over prefix/KV caching, slots, **GBNF/JSON-schema constrained output** (reliable tool calls from small models), thread pinning, Vulkan experiments. Ollama wraps llama.cpp and hides those controls. |
-| **Main conversational + tool LLM** | **Gemma 4 E4B-it, Q4_K_M** | **Qwen 3.5 4B, Q4_K_M** | The 4B class is the largest that stays conversational (~5–9 tok/s). In one community CPU tool-calling test these two scored highest (~94% and ~91%), while Phi-4-mini failed with stock llama.cpp because of its tool-call format. That is a single-author result, so **we re-test on your machine**. Gemma 4 E4B also accepts images, so one model could cover vision. |
+| **Main conversational + tool LLM** | **Gemma 4 E4B-it, Q4_0** *(Phase 0: 30/32 tool cases, warm median 4.7 s; the 2 misses were clarifying questions)* | **Qwen 3.5 4B, Q4_K_M** *(32/32, but warm median 8.8 s because its tool-call format uses about twice as many output tokens)* | The 4B class is the largest that stays conversational (~5–9 tok/s). In one community CPU tool-calling test these two scored highest (~94% and ~91%), while Phi-4-mini failed with stock llama.cpp because of its tool-call format. That is a single-author result, so **we re-test on your machine**. Gemma 4 E4B also accepts images, so one model could cover vision. |
 | Background "deep think" | 7–8B class, Q4 | — | 2–4 tok/s is too slow for conversation but fine for **overnight memory consolidation, summaries and code-error analysis** while plugged in. |
 | Phone-side LLM | **None in v1** (experiment: ~0.5B Q4) | — | 3 GB RAM and A53 cores give about 2–4 tok/s with poor reasoning. A grammar-based command parser beats it on reliability. |
 | Embeddings (memory, intent matching) | **bge-small-en-v1.5** (33 M) | EmbeddingGemma-300M | Milliseconds per query on CPU, which is enough for intent routing and memory recall. |
@@ -135,10 +135,10 @@ Each pick is sized to an **i7-8650U with ~5 GB of RAM budget**, not chosen for p
 |---|---|---|---|
 | Wake word | **sherpa-onnx KWS**, phrase "hey sparky" (open-vocabulary, no training needed) | — | Must run on the device that has the mic, at low power. openWakeWord needs a custom-trained model and is Python-first, which makes it awkward on Android. |
 | VAD | Silero (sherpa-onnx) | Silero | Endpointing decides how quickly SPARKY responds after you stop talking. |
-| ASR (main) | streams 16 kHz audio to laptop | **Parakeet-TDT 0.6B (int8)** via sherpa-onnx; alt: whisper.cpp `small.en` | Parakeet is very accurate on English and fast on CPU. Whisper is the fallback for multilingual use. |
+| ASR (main) | streams 16 kHz audio to laptop | **Parakeet-TDT 0.6B v2 (int8)** via sherpa-onnx *(Phase 0: 0% WER, 0.5 s per command)*; alt: Moonshine base *(3.3% WER, 0.24 s)* | Parakeet is very accurate on English and fast on CPU. Whisper is the fallback for multilingual use. |
 | Offline commands (Satellite mode) | **sherpa-onnx KWS spotter with a fixed phrase list** ("open spotify", "battery", …), same model as the wake word | — | *Phase 0:* the 20M streaming Zipformer had **~63% WER** and drops the first word, so it is unusable. The 3.3M KWS model detected "hey sparky" 3/3 with 0/4 false alarms at RTF 0.07 on one thread; a fixed phrase list reuses it. |
 | TTS (main) | plays audio streamed from the laptop | **Piper** (pick a voice you like; several British English voices exist), sentence-streamed | Faster than real time on CPU; first audio in roughly 0.3 s. |
-| TTS (quality option) | — | Kokoro-82M | Noticeably more natural, but much slower on this CPU. Enable it only if benchmarks show <1 s for the first sentence. |
+| TTS (quality option) | — | ~~Kokoro-82M~~ **rejected** | *Phase 0:* first sentence 1.6 s, RTF 1.16 (slower than real time). Piper alan-medium: 0.10 s, RTF 0.11. |
 | TTS (offline phone) | Android system TTS (Samsung/Google offline voice) or Piper-low on device | — | Already installed and costs nothing. |
 
 **Continuous conversation:** after SPARKY replies, the mic stays open for about 6 s for follow-ups without the wake word. Barge-in (interrupting SPARKY mid-sentence) works if the phone does basic echo cancellation (Android `AcousticEchoCanceler`; quality varies by device, so test it).
@@ -334,7 +334,7 @@ Each phase ends with something usable and a measured exit criterion.
 | Phase | Goal | Exit criterion |
 |---|---|---|
 | **0. Measure** (1–2 wk) | Install llama.cpp, sherpa-onnx, adb. Benchmark Gemma 4 E4B vs Qwen 3.5 4B (tok/s, prompt-processing speed, tool-call accuracy on ~30 SPARKY-specific cases), Parakeet vs Whisper, Piper vs Kokoro. On the phone: Android version, model number, KWS CPU usage and battery drain per hour. | A numbers table; models chosen by data |
-| **1. Brain** (3–4 wk) | Core text-only: llama-server, fast-path router, 10 tools, risk tiers, audit log, SQLite memory, CLI client | "Open VS Code in sparky and show git status" works by text in <3 s |
+| **1. Brain** (3–4 wk) | Core text-only: llama-server, fast-path router, 10 tools, risk tiers, audit log, SQLite memory, CLI client | "Open VS Code in sparky and show git status" works by text: fast-path <1 s, LLM-routed <6 s warm (Phase 0 measured ~5 s per tool call) |
 | **2. Link + voice** (3–4 wk) | Shell app (plain UI), pairing + mTLS, push-to-talk, streamed ASR/TTS | End-to-end voice answer, median <3 s (LLM) / <1 s (fast path) |
 | **3. The OS feel** (4–6 wk) | Launcher as HOME, core orb, HUD, boot sequence, notification centre, Device Owner lock-task | The phone boots straight into SPARKY; no stock UI is visible in normal use |
 | **4. Phone intelligence** (3–4 wk) | Wake word, Accessibility actions, settings control, Satellite (offline) mode, continuous conversation | Hands-free control at a 2 m desk distance; useful with the laptop off |
