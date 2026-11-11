@@ -22,14 +22,14 @@
 |---|---|---|
 | Model | HP EliteBook 840 G5 | Business ultrabook with a 15 W TDP; it **throttles under sustained load**. |
 | CPU | Intel Core i7-8650U, 4 cores / 8 threads, AVX2 | Good llama.cpp support through AVX2. Prompt processing on CPU is the main bottleneck. |
-| GPU | Intel UHD 620 (integrated) | **No CUDA.** Vulkan/SYCL offload brings little or no benefit; benchmark it, but don't plan around it. |
-| RAM | 16 GB DDR4-2400, dual channel (2×8 GB) | About 38 GB/s of theoretical bandwidth, which caps token generation. A 4B Q4 model generates roughly **5–9 tokens/s**; a 7–8B model roughly **2–4 tokens/s**. |
+| GPU | Intel UHD 620 (integrated) | **No CUDA.** *Measured in Phase 0:* Vulkan offload is **slower** than the CPU (Qwen3.5-4B: prompt 9.9 vs 20.6 tok/s, generation 2.6 vs 4.8 tok/s). Run CPU-only. |
+| RAM | 16 GB DDR4-2400, dual channel (2×8 GB) | About 38 GB/s of theoretical bandwidth, which caps token generation. A 4B Q4 model generates roughly **5–9 tokens/s**; a 7–8B model roughly **2–4 tokens/s**. *Measured:* Qwen3.5-4B Q4_K_M generates **~4.5 tok/s** and processes prompts at **~17–21 tok/s** on 4 threads (see `docs/phase0-results.md`). |
 | Free RAM at inspection | 5.4 GB | Your normal workload already uses about 10 GB. The AI stack has to stay under **~5–6 GB**. |
 | Storage | 256 GB NVMe. C: 59 GB free, D: 39 GB free, **E: only 6 GB free** | Code lives in `E:\sparky`; **models must go on D:** (`D:\sparky-models`). |
 | OS | Windows 11 Pro 25H2 (build 26200) | Built-in **Windows OCR** (offline, free), UI Automation and Mobile Hotspot all help. |
 | Tooling present | Python 3.14, Node, Git, VS Code (`code` CLI), WSL | **Python 3.14 is too new** for some ML wheels (onnxruntime, ctranslate2). Use a Python 3.12 venv for the core. `adb` and Ollama are **not installed**. |
 
-### 1.2 Samsung Galaxy J7 Pro — from public specs; to verify on the device in Phase 0
+### 1.2 Samsung Galaxy J7 Pro — public specs, checked on the device in Phase 0
 
 | Component | Spec | Implication |
 |---|---|---|
@@ -40,7 +40,7 @@
 | Software | Final official release Android 9 (One UI 1.0); out of security support | Vendor maintenance has ended. Treat the phone as an **untrusted endpoint** (see §9). |
 | Battery | Original 2017 cell, probably degraded | Always-on listening on battery isn't practical. The best experience comes from a **docked, charging "desk console"**. Check the cell for swelling before running it plugged in 24/7. |
 
-**Phase 0 must confirm:** the exact model number (SM-J730F/G/GM/FN…), the Android version, whether the OEM-unlock toggle is visible, and free storage. I can't inspect the phone from here (`adb` isn't installed and the phone isn't connected).
+**Confirmed in Phase 0** (`docs/phone-probe.txt`): **SM-J730GM**, Android 9 (SDK 28, patch 2021-05), **32-bit userspace (`armeabi-v7a` only)** even though the SoC is 64-bit, so every native library (sherpa-onnx, ONNX Runtime, TFLite) must ship `armeabi-v7a` builds. 2.8 GB RAM with ~1.5 GB available; only 4 of 8 cores online at idle (hotplug). OEM unlock is supported but off, the Knox warranty bit is 0, battery health is *good*, 53 GB is free, and an NXP `AcousticEchoCanceler` is present. **0 accounts and 1 user**, so Device Owner can be provisioned without a factory reset (§7.1).
 
 ---
 
@@ -96,13 +96,15 @@
 "Hey Sparky"   →  phone KWS (local, ~200 ms)  →  orb wakes + earcon (instant feedback)
 speech         →  streamed to laptop, VAD endpoint       ~300–600 ms after you stop
 ASR final      →  Fast path? (rules + embedding match)    <100 ms  → execute → speak
-               →  else LLM with cached system prompt      first token ~1–2 s
+               →  else LLM with cached system prompt      measured: tool call 6–13 s (median 8.8 s)
 LLM stream     →  sentence-chunked TTS → audio to phone   first audio ~0.3 s after first sentence
 ```
 
 **This is the most important design decision for the "feel".** About 70% of what you'll say ("open Spotify", "battery?", "run the sparky core tests", "what's using my RAM") **must never touch the LLM**. A deterministic fast path answers in under 1 s; the LLM only handles open-ended requests. Instant earcons and orb animation cover the remaining wait.
 
 **Hidden trap:** on this CPU, *prompt processing* runs at only tens of tokens/s. A 2,000-token system prompt with tool definitions could take **30+ seconds** if it isn't cached. llama-server's prefix cache (fixed system prompt kept in a reusable slot) is **mandatory**, and the tool list exposed per request has to stay short (pick tools by intent first).
+
+**Measured in Phase 0:** a 1,181-token system prompt plus 13 tools took **69 s** to prefill cold. llama-server (b12262, default 4 slots, unified KV) *does* reuse the cached prefix: warm requests only process the ~20 new tokens. Warm latency is therefore dominated by **generation** — a tool call is 25–50 output tokens at ~4.5 tok/s, so 6–13 s. Levers, in order: the fast path; warming the prefix at startup; fewer, shorter tool definitions and argument names; constrained output with a compact call format. The <3 s Phase 1 target for LLM requests is not reachable on this CPU by sampling alone.
 
 ---
 
@@ -127,14 +129,14 @@ Each pick is sized to an **i7-8650U with ~5 GB of RAM budget**, not chosen for p
 
 ## 5. Offline speech: recognition and synthesis
 
-**Use [sherpa-onnx](https://k2-fsa.github.io/sherpa/onnx/) as the single speech runtime on both devices.** It provides wake word (keyword spotting), Silero VAD, streaming and offline ASR, and TTS (Piper/VITS, Kokoro), with an Android AAR and Python wheels. One library means one set of model formats and one set of bugs to learn.
+**Use [sherpa-onnx](https://k2-fsa.github.io/sherpa/onnx/) as the single speech runtime on both devices, pinned to 1.13.8** (2.x dropped the espeak-ng frontend Piper voices need). It provides wake word (keyword spotting), Silero VAD, streaming and offline ASR, and TTS (Piper/VITS, Kokoro), with an Android AAR and Python wheels. One library means one set of model formats and one set of bugs to learn.
 
 | Function | Phone | Laptop | Why |
 |---|---|---|---|
 | Wake word | **sherpa-onnx KWS**, phrase "hey sparky" (open-vocabulary, no training needed) | — | Must run on the device that has the mic, at low power. openWakeWord needs a custom-trained model and is Python-first, which makes it awkward on Android. |
 | VAD | Silero (sherpa-onnx) | Silero | Endpointing decides how quickly SPARKY responds after you stop talking. |
 | ASR (main) | streams 16 kHz audio to laptop | **Parakeet-TDT 0.6B (int8)** via sherpa-onnx; alt: whisper.cpp `small.en` | Parakeet is very accurate on English and fast on CPU. Whisper is the fallback for multilingual use. |
-| ASR (Satellite mode) | small streaming Zipformer (sherpa-onnx), constrained to the command vocabulary | — | Real-time on A53 for short commands. Not for dictation. |
+| Offline commands (Satellite mode) | **sherpa-onnx KWS spotter with a fixed phrase list** ("open spotify", "battery", …), same model as the wake word | — | *Phase 0:* the 20M streaming Zipformer had **~63% WER** and drops the first word, so it is unusable. The 3.3M KWS model detected "hey sparky" 3/3 with 0/4 false alarms at RTF 0.07 on one thread; a fixed phrase list reuses it. |
 | TTS (main) | plays audio streamed from the laptop | **Piper** (pick a voice you like; several British English voices exist), sentence-streamed | Faster than real time on CPU; first audio in roughly 0.3 s. |
 | TTS (quality option) | — | Kokoro-82M | Noticeably more natural, but much slower on this CPU. Enable it only if benchmarks show <1 s for the first sentence. |
 | TTS (offline phone) | Android system TTS (Samsung/Google offline voice) or Piper-low on device | — | Already installed and costs nothing. |
@@ -171,7 +173,7 @@ Discovery uses mDNS (`_sparky._tcp`), with a pinned last-known address as fallba
 | Mechanism | Grants | Setup |
 |---|---|---|
 | **Default Home app** | SPARKY *is* the home screen | One-time settings choice |
-| **Device Owner** (`DevicePolicyManager`) | **Lock-task (kiosk) mode, disabling the status bar and keyguard features, silent app install/uninstall, hiding apps, system update policy, setting global settings** | `adb shell dpm set-device-owner com.sparky.shell/.system.SparkyAdmin`. **This requires no accounts on the device**, so in practice a factory reset first, skip the Google/Samsung login, and provision. |
+| **Device Owner** (`DevicePolicyManager`) | **Lock-task (kiosk) mode, disabling the status bar and keyguard features, silent app install/uninstall, hiding apps, system update policy, setting global settings** | `adb shell dpm set-device-owner com.sparky.shell/.system.SparkyAdmin`. **This requires no accounts on the device.** *Phase 0:* the phone has 0 accounts and 1 user, so it can be provisioned **without a factory reset**. Don't add a Google/Samsung account before provisioning. |
 | **AccessibilityService** | Read the screen's UI tree ("what's on my screen"), perform taps and scrolls in other apps, global actions (back, recents, notifications, power dialog) | User toggle in Settings |
 | **NotificationListenerService** | Read, dismiss and act on all notifications, the basis for SPARKY's own notification centre | User toggle |
 | `WRITE_SETTINGS` / `WRITE_SECURE_SETTINGS` (via adb `pm grant`) | Brightness, screen timeout, location mode, and so on | One-time adb command |
@@ -352,7 +354,7 @@ Each phase ends with something usable and a measured exit criterion.
 | Small models choose wrong tools or hallucinate arguments | Medium | Grammar-constrained output, schema validation, confirmation tiers, a per-intent subset of tools |
 | Laptop asleep or off means no brain | High | Satellite mode; optional wake-on-LAN; keep the laptop awake while plugged in |
 | Samsung kills background services | High | Foreground service, battery exemption, Device Owner |
-| Device Owner provisioning needs an account-free device (factory reset) | Certain | Plan for it: back up the phone first, provision once |
+| Device Owner provisioning needs an account-free device | Low (0 accounts today) | Provision before adding any account; back up first; provision once |
 | Old battery, 24/7 charging, swelling | Medium | Inspect the battery; watch temperature in the HUD; replace the cell if swollen |
 | Unpatched Android 9 | Certain | Treat the phone as untrusted; keep sensitive accounts off it; mTLS + tiers |
 | Phone mic range and echo | Medium | Desk-console use; tap fallback; tune AEC |
