@@ -1,0 +1,32 @@
+﻿model                  SM-J730GM
+device                 j7y17lte
+android                9
+sdk                    28
+security_patch         2021-05-01
+build                  PPR1.180610.011.J730GMDXUCCUF5
+cpu_abi                armeabi-v7a
+soc                    samsungexynos7870
+cpu_abilist            armeabi-v7a,armeabi
+cores_possible         0-7
+cores_online           0-3
+max_freq_khz           1586000
+oem_unlock_supported   1
+oem_unlock_allowed     0
+knox_warranty_bit      0
+bootloader             J730GMDXUCCUF5
+accounts_present       0
+device_owner           
+users                  1
+gles                   GLES: ARM, Mali-T830, OpenGL ES 3.2 v1.r28p0-01rel0.###other-sha0123456789ABCDEF0###
+display                Physical size: 1080x1920
+mem_total              MemTotal:        2891896 kB
+mem_available          MemAvailable:    1512196 kB
+storage_data           /dev/block/dm-1  54G  1.3G   53G   3% /data
+battery_level          39
+battery_health         2
+battery_temperature    334
+battery_voltage        3903
+battery_status         2
+aec_available          Acoustic Echo Canceler / NXP Software Ltd.
+Failed to write while dumping service media.audio_flinger: Broken pipe
+third_party_packages   3
