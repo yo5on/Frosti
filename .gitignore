@@ -1,0 +1,30 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Model weights and large binaries live on D:\sparky-models / D:\sparky-tools, never in git
+*.gguf
+*.onnx
+*.bin
+*.zip
+models/
+
+# Runtime data (memory DB, audit log, pairing keys)
+data/
+*.db
+*.db-wal
+*.db-shm
+*.pem
+*.key
+
+# Android
+.gradle/
+build/
+local.properties
+*.apk
+*.keystore
+*.jks
+
+# Bench output is regenerated; summarized results are committed under docs/
+bench/out/
