@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FROSTI animations</title>
+<style>
+  :root { --bg:#000; --surface:#181614; --line:#262320; --accent:#e8853d; --amber:#e8b931; --text:#f0ece4; --muted:#8c867d; --dim:#4a4640;
+          --mono: ui-monospace, "Cascadia Mono", Consolas, monospace; --serif: Georgia, "Noto Serif", serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font: 400 30px/1.2 var(--serif); margin: 0 0 4px; }
+  h2 { font: 500 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 40px 0 12px; }
+  p.lede { color: var(--muted); margin: 0 0 24px; max-width: 70ch; }
+  .lab { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 820px) { .lab { grid-template-columns: 1fr; } }
+  .stage { background: #050505; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .stage canvas { display: block; width: 100%; aspect-ratio: 32 / 14; cursor: pointer; }
+  .now { display: flex; justify-content: space-between; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line);
+         font: 12px var(--mono); color: var(--muted); }
+  .now b { color: var(--accent); font-weight: 500; }
+  .controls { display: grid; gap: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .row > span { font: 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); width: 100%; }
+  button, select { font: 13px system-ui, sans-serif; color: var(--text); background: var(--surface); border: 1px solid var(--line);
+                   border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  button:hover, select:hover { border-color: var(--dim); }
+  button:active { transform: scale(.96); }
+  button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .card { background: #050505; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .card canvas { display: block; width: 100%; aspect-ratio: 32 / 14; }
+  .card .meta { padding: 10px 12px 12px; border-top: 1px solid var(--line); }
+  .card .name { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .card .name strong { font-weight: 500; }
+  .card .id { font: 11px var(--mono); color: var(--dim); }
+  .card .why { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .card .src { font-size: 12px; color: var(--dim); margin-top: 2px; }
+  .tag { font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px;
+         border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .tag.warn { color: var(--amber); border-color: #4a3d14; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { font: 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); font-weight: 400; }
+  td code { font: 12px var(--mono); color: var(--accent); }
+  .err { color: var(--amber); font: 13px var(--mono); }
+</style>
+</head>
+<body>
+<main>
+  <h1>FROSTI animations</h1>
+  <p class="lede">Every animation enters from the resting pose, loops, and exits back to it, so any one can follow any other.
+    The lab drives the same controller the console and phone use: send it real FROSTI events and watch what wins.
+    Click the penguin to poke it; move the pointer over it to make it glance.</p>
+  <p class="err" id="err" hidden></p>
+
+  <h2>Event lab</h2>
+  <div class="lab">
+    <div class="stage">
+      <canvas id="stage" tabindex="0" aria-label="FROSTI. Click to poke."></canvas>
+      <div class="now"><span>playing <b id="nowId">–</b> · <span id="nowPart">–</span></span><span id="nowWhy"></span></div>
+    </div>
+    <div class="controls">
+      <div class="row"><span>Core state</span>
+        <button data-state="idle">Idle</button><button data-state="listening">Listening</button>
+        <button data-state="thinking">Thinking</button><button data-state="speaking">Speaking</button>
+        <button id="wakeWord">Wake word</button></div>
+      <div class="row"><span>A tool runs</span>
+        <select id="tool" aria-label="Tool"></select><button id="toolStart">Start</button></div>
+      <div class="row"><span>The tool finishes</span>
+        <button id="okFast">Reply: done in 1 s</button><button id="okSlow">Reply: done in 7 s</button>
+        <button id="fail">Reply: error</button><button id="chat">Reply: no tool</button></div>
+      <div class="row"><span>Permission</span>
+        <button id="ask">Ask</button><button id="yes">Approve</button><button id="no">Decline</button>
+        <button id="wait">Skip 60 s</button></div>
+      <div class="row"><span>System</span>
+        <button id="notify">Timer rings</button><button id="sleep">Sleep</button><button id="drop">Link drops</button>
+        <button id="back">Link back</button><button id="bad">Bad token</button><button id="cpu">CPU 95 %</button>
+        <button id="bat">Battery 10 %</button><button id="pastime">Idle pastime now</button></div>
+    </div>
+  </div>
+
+  <h2>Tool to animation</h2>
+  <table id="map"><thead><tr><th>FROSTI tool</th><th>Animation</th></tr></thead><tbody></tbody></table>
+
+  <div id="sections"></div>
+</main>
+<script src="frosti.js"></script>
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const GROUPS = [["state", "Base states"], ["activity", "Activities (a tool is running)"], ["reaction", "Reactions (one-shots)"],
+                ["pastime", "Idle pastimes"]];
+
+function fit(c) {  // backing store matches CSS pixels so the rig can snap to whole device pixels
+  const r = c.getBoundingClientRect(), d = devicePixelRatio || 1, w = Math.round(r.width * d), h = Math.round(r.height * d);
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+}
+
+fetch("frosti_anims.json").then(r => { if (!r.ok) throw new Error(`frosti_anims.json: HTTP ${r.status}`); return r.json(); })
+  .then(start).catch(e => { const el = $("#err"); el.hidden = false; el.textContent = `Couldn't load the animations. ${e.message}`; });
+
+function start(spec) {
+  const { Controller, Player, Rig } = Frosti, rig = new Rig(spec);
+  const ctl = new Controller(spec, { walkIn: true });
+  window.ctl = ctl;
+
+  // ---- lab ----
+  const stage = $("#stage"), g = stage.getContext("2d");
+  const lvl = t => ctl.st === "speaking" ? .35 + .3 * Math.abs(Math.sin(t * 9) * Math.sin(t * 3.3))
+                 : ctl.st === "listening" ? .2 + .15 * Math.abs(Math.sin(t * 5)) : 0;
+  let why = "";
+  const note = s => { why = s; $("#nowWhy").textContent = s; };
+  const on = (sel, f) => $(sel).addEventListener("click", f);
+  document.querySelectorAll("[data-state]").forEach(b => b.addEventListener("click", () => {
+    ctl.state(b.dataset.state); note(`state ${b.dataset.state}`);
+    document.querySelectorAll("[data-state]").forEach(x => x.classList.toggle("on", x === b));
+  }));
+  const sel = $("#tool");
+  Object.entries(spec.map.tools).forEach(([k]) => sel.add(new Option(k, k)));
+  let lastTool = null;
+  on("#toolStart", () => {
+    const [tool, sub] = sel.value.split(":"), args = tool === "git" ? { action: sub || "status" } : tool === "run_project" ? { task: sub || "dev" } : {};
+    lastTool = tool; ctl.activity(tool, args); note(`tool ${sel.value} started`);
+  });
+  on("#okFast", () => { ctl.reply({ tool: lastTool || "git", seconds: 1 }); note("reply after 1 s"); });
+  on("#okSlow", () => { ctl.reply({ tool: lastTool || "git", seconds: 7 }); note("reply after 7 s"); });
+  on("#fail", () => { ctl.reply({ tool: lastTool || "git", detail: "RuntimeError()" }); note("reply with error"); });
+  on("#chat", () => { ctl.reply({}); note("reply without a tool"); });
+  on("#ask", () => { ctl.confirm(); note("confirm requested"); });
+  on("#yes", () => { ctl.decided(true); note("approved"); });
+  on("#no", () => { ctl.decided(false); note("declined"); });
+  on("#wait", () => { if (ctl.perm != null) { ctl.perm -= 61000; note("60 s without an answer"); } });
+  on("#notify", () => { ctl.notify(); note("notify"); });
+  on("#sleep", e => { ctl.sleep(!ctl.sleeping); e.target.textContent = ctl.sleeping ? "Wake" : "Sleep"; note(ctl.sleeping ? "idle screen" : "woken"); });
+  on("#drop", () => { ctl.setLink(false); note("link dropped"); });
+  on("#back", () => { ctl.setLink(true); note("link back"); });
+  on("#bad", () => { ctl.setLink(false, true); note("bad token"); });
+  on("#cpu", () => { ctl.lastStat = {}; ctl.stats({ cpu: 95 }); note("CPU 95 %"); });
+  on("#bat", () => { ctl.lastStat = {}; ctl.stats({ battery: 10 }); note("battery 10 %"); });
+  on("#pastime", () => { ctl.nextPastime = ctl.now; note("pastime"); });
+  on("#wakeWord", () => { ctl.surprised(); ctl.state("listening"); note("wake word"); });
+  stage.addEventListener("click", () => { ctl.poke(); note("poked"); });
+  stage.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ctl.poke(); note("poked"); } });
+  stage.addEventListener("pointermove", e => { const r = stage.getBoundingClientRect(); ctl.hover(((e.clientX - r.left) / r.width - .5) * 4); });
+  stage.addEventListener("pointerleave", () => ctl.hover(null));
+
+  // ---- tool table ----
+  const tb = $("#map tbody");
+  for (const [k, v] of Object.entries(spec.map.tools))
+    tb.insertAdjacentHTML("beforeend", `<tr><td><code>${k}</code></td><td>${spec.anims[v].label} <span class="id">${v}</span></td></tr>`);
+  for (const id of spec.order.filter(id => !spec.anims[id].mapped))
+    tb.insertAdjacentHTML("beforeend", `<tr><td class="err">no tool yet</td><td>${spec.anims[id].label} <span class="id">${id}</span></td></tr>`);
+
+  // ---- gallery: each card replays enter, loop, exit forever ----
+  const cards = [];
+  for (const [grp, title] of GROUPS) {
+    const ids = spec.order.filter(id => spec.anims[id].group === grp);
+    $("#sections").insertAdjacentHTML("beforeend", `<h2>${title} · ${ids.length}</h2><div class="grid" id="g-${grp}"></div>`);
+    for (const id of ids) {
+      const a = spec.anims[id], el = document.createElement("div");
+      el.className = "card";
+      el.innerHTML = `<canvas aria-label="${a.label} animation"></canvas><div class="meta">
+        <div class="name"><strong>${a.label}</strong>${a.mapped ? "" : '<span class="tag warn">gallery only</span>'}</div>
+        <div class="id">${id} · priority ${a.prio}${a.repeat ? ` · plays ${a.repeat}×` : ""}</div>
+        <div class="why">${a.trigger}</div><div class="src">Reference: ${a.src}</div></div>`;
+      $(`#g-${grp}`).appendChild(el);
+      const c = el.querySelector("canvas"), variants = Object.keys(a.parts).filter(k => k.startsWith("exit"));
+      cards.push({ c, g: c.getContext("2d"), id, a, variants, n: 0, p: new Player(spec, id), wait: 0, visible: false });
+    }
+  }
+  const io = new IntersectionObserver(es => es.forEach(e => { const k = cards.find(x => x.c === e.target); if (k) k.visible = e.isIntersecting; }));
+  cards.forEach(k => io.observe(k.c));
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(100, now - last); last = now; const t = now / 1000;
+    ctl.tick(dt);
+    fit(stage); ctl.draw(g, stage.width, stage.height, { level: lvl(t), time: t });
+    $("#nowId").textContent = ctl.cur.id; $("#nowPart").textContent = ctl.cur.part;
+    for (const k of cards) {
+      if (k.wait > 0) { k.wait -= dt; if (k.wait <= 0) k.p = new Player(spec, k.id); }
+      else {
+        k.p.step(dt / spec.tick);
+        if (k.a.repeat == null && k.p.loops >= 2) k.p.leave(k.variants[k.n % k.variants.length]);
+        if (k.p.done) { k.wait = 700; k.n++; }
+      }
+      if (!k.visible) continue;
+      fit(k.c);
+      rig.draw(k.g, k.c.width, k.c.height, k.p.frame(), k.p.pt,
+               { glow: spec.palette[k.a.glow], level: .3 + .3 * Math.abs(Math.sin(t * 7)), time: t });
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+</script>
+</body>
+</html>

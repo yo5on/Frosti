@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FROSTI Console</title>
+<!-- Served by the Core on 127.0.0.1 only (gateway.console_page). No external assets: works offline. -->
+<style>
+:root{
+  --bg:#262624;--rail:#1f1e1d;--surface:#30302e;--line:#3d3d3a;--cyan:#d97757;--cyan-dim:rgba(217,119,87,.55);--amber:#e8b931;
+  --text:#faf9f5;--muted:#9c9a92;--dim:#73726c;
+  --serif:"Tiempos Text",Georgia,"Times New Roman",serif;
+  --thin:"Segoe UI Variable Display","Segoe UI Light","Segoe UI",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font:15px/1.5 var(--thin);font-weight:300;-webkit-font-smoothing:antialiased}
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.label{font:500 10.5px/1 var(--mono);letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.cyan{color:var(--cyan)}.amber{color:var(--amber)}.muted{color:var(--muted)}.dim{color:var(--dim)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--dim);vertical-align:middle}
+.dot.on{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}.dot.warn{background:var(--amber)}
+
+.app{display:grid;grid-template-columns:232px 1fr;height:100%}
+nav.rail{display:flex;flex-direction:column;padding:28px 18px 22px;border-right:1px solid var(--line);background:var(--rail)}
+.brand{display:flex;align-items:center;gap:12px;padding:0 10px 30px}
+.brand canvas{width:34px;height:34px}
+.brand b{font:400 22px var(--serif)}
+.newchat{display:flex;align-items:center;gap:12px;padding:9px 12px;margin-bottom:10px;border-radius:12px;font:400 14px var(--thin);color:var(--text)}
+.newchat:hover{background:rgba(250,249,245,.04)}
+.newchat span{width:24px;height:24px;border-radius:50%;background:var(--cyan);display:grid;place-items:center;font:500 17px/1 var(--thin);color:var(--bg)}
+.recents{margin-top:24px;min-height:0;overflow:auto}
+.recents .label{padding:0 12px 8px;letter-spacing:.06em;text-transform:none;font:400 12px var(--thin);color:var(--dim)}
+.recents button{display:block;width:100%;text-align:left;padding:7px 12px;border-radius:10px;font:300 13.5px var(--thin);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recents button:hover{background:rgba(250,249,245,.04);color:var(--text)}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:14px;padding:9px 12px;border-radius:12px;text-align:left;
+  font:400 14px var(--thin);color:var(--muted);transition:color .15s,background .15s}
+.nav [data-nav=home]{display:none}
+.nav button:hover{color:var(--text);background:rgba(250,249,245,.04)}
+.nav button.on{color:var(--text);background:var(--surface)}
+.nav button i{width:3px;height:14px;border-radius:2px;background:transparent}
+.nav button.on i{background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+.nav kbd{margin-left:auto;font:10px var(--mono);color:var(--dim)}
+.rail .foot{margin-top:auto;padding:0 12px;display:grid;gap:10px}
+.rail .foot .label{font:400 12px var(--thin);letter-spacing:0;text-transform:none}
+main{position:relative;overflow:hidden}
+.screen{position:absolute;inset:0;overflow:auto;padding:36px 48px 40px;display:none}
+.screen.on{display:block;animation:rise .18s cubic-bezier(.2,.8,.2,1)}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+h1{font:400 40px/1.1 var(--serif);letter-spacing:-.01em}
+.sub{color:var(--muted);margin:8px 0 6px}
+.section{margin:34px 0 10px;color:var(--cyan-dim)}
+
+/* home: the Claude "new chat" screen */
+.start{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;max-width:720px;margin:0 auto}
+.start canvas{width:min(300px,70%);height:auto;aspect-ratio:32/14;cursor:pointer}
+.start .greet{font:400 40px/1.15 var(--serif);margin-top:6px}
+.start .input{width:100%;margin-top:28px}
+.clock{font:100 96px/1 var(--thin);letter-spacing:-.02em}
+.state{font:500 12px var(--mono);letter-spacing:.3em;color:var(--cyan)}
+.hint{color:var(--muted);margin-top:8px}
+.quick{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px}
+.quick button{font:400 13.5px var(--thin);color:var(--muted);padding:8px 14px;border-radius:12px;border:1px solid var(--line);transition:color .15s,border-color .15s}
+.quick button:hover{color:var(--text);border-color:var(--cyan-dim)}
+
+/* rows / stats */
+.row{display:flex;align-items:center;gap:16px;padding:13px 4px;border-radius:10px}
+button.row{width:100%;text-align:left}
+button.row:hover{background:var(--surface)}
+.row .t{flex:1;min-width:0}.row .t div:first-child{font-size:16px}
+.row .t .label{margin-top:5px;letter-spacing:.06em;text-transform:none}
+.tag{font:500 10px var(--mono);letter-spacing:.15em;text-transform:uppercase;color:var(--cyan)}
+.tag.amber{color:var(--amber)}
+.stat{padding:12px 0}
+.stat .h{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.stat .v{font-size:15px}.stat .v.warn{color:var(--amber)}
+.meter{height:3px;background:var(--line);margin-top:9px}.meter i{display:block;height:100%;width:0;background:var(--cyan);transition:width .5s}
+.meter i.warn{background:var(--amber)}
+.spark{width:100%;height:46px;margin-top:8px;display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px 56px}
+
+/* talk */
+.talk{display:grid;grid-template-rows:auto 1fr auto;height:100%;max-width:780px;margin:0 auto}
+.talkhead{display:flex;align-items:center;gap:22px}
+.talkhead canvas{width:224px;height:98px;cursor:pointer}
+.ind{display:flex;gap:18px;align-items:center;margin-top:14px}
+.log{overflow:auto;padding:18px 0;scroll-behavior:smooth;display:flex;flex-direction:column}
+.msg{padding:10px 0;animation:rise .2s ease-out}
+.msg .who{margin-bottom:5px}
+.msg .body{font:400 18px/1.5 var(--serif);white-space:pre-wrap}.msg.you{align-self:flex-end;max-width:80%}.msg.you .body{color:var(--text);font:300 16px var(--thin);background:var(--surface);padding:10px 16px;border-radius:16px}
+.msg .det{font:11px/1.5 var(--mono);color:var(--dim);margin-top:6px;white-space:pre-wrap}
+.input{display:flex;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:0 6px 0 22px;box-shadow:0 4px 20px rgba(0,0,0,.18);transition:border-color .15s}
+.input:focus-within{border-color:var(--cyan-dim)}.input input:focus-visible{outline:0}
+.input input{flex:1;background:none;border:0;outline:0;color:var(--text);font:300 16px var(--thin);height:52px}
+.input input::placeholder{color:var(--dim)}
+.send{width:44px;height:44px;border-radius:50%;display:grid;place-items:center}.send{background:var(--cyan)}.send:hover{background:#c6613f}
+.send svg{width:20px;height:20px;stroke:var(--text);fill:none;stroke-width:1.8;stroke-linecap:round}
+
+/* memory chips */
+.chips{display:flex;gap:6px;margin:14px 0 4px}
+.chips button{font:500 10px var(--mono);letter-spacing:.15em;text-transform:uppercase;color:var(--muted);padding:9px 15px;border-radius:999px;border:1px solid transparent}
+.chips button.on{color:var(--cyan);border-color:var(--cyan-dim);background:var(--surface)}
+.empty{color:var(--muted);padding:20px 4px}
+.range{width:100%;accent-color:var(--cyan)}
+
+/* overlays */
+.overlay{position:fixed;inset:0;background:var(--bg);display:none;z-index:10}
+.overlay.on{display:grid;place-items:center}
+#boot .box,#idle .box{display:flex;flex-direction:column;align-items:center}
+#boot canvas{width:320px;height:140px}
+#boot .word{font:600 26px var(--mono);letter-spacing:.9em;margin:20px 0 0 .9em;opacity:0;transition:opacity .6s,letter-spacing .9s cubic-bezier(.2,.8,.2,1)}
+#boot .word.in{opacity:1;letter-spacing:.45em}
+#boot .log{opacity:1;margin-top:26px;display:grid;gap:7px;padding:0}
+#boot .log div{opacity:0;transition:opacity .2s}#boot .log div.in{opacity:1}
+#idle{cursor:none;background:#000}
+#idle .box{transition:transform 2s ease}
+#idle canvas{width:256px;height:112px}
+#idle .clock{font-size:clamp(96px,16vw,180px);margin-top:8px}
+#idle .date{color:var(--muted);font-size:20px;margin-top:6px}
+#modal{background:rgba(0,0,0,.55);backdrop-filter:blur(3px)}
+.dialog{width:min(440px,calc(100vw - 32px));background:var(--surface);box-shadow:0 20px 60px rgba(0,0,0,.4);border:1px solid var(--line);border-radius:18px;padding:24px}
+.dialog.amber{border-color:var(--amber);color:var(--text)}
+button:focus-visible,input:focus-visible{outline:1px solid var(--cyan-dim);outline-offset:2px}
+.dialog p{margin:12px 0 18px;font-size:16px}
+.dialog input{width:100%;background:var(--bg);border:0;outline:0;border-radius:12px;padding:12px 16px;color:var(--text);font:300 16px var(--thin);margin:12px 0 18px}
+.dialog .btns{display:flex;justify-content:flex-end;gap:8px}
+.dialog .btns button{font:500 11px var(--mono);letter-spacing:.15em;text-transform:uppercase;padding:10px 14px;border-radius:10px;color:var(--muted)}
+.dialog .btns button.go{color:var(--cyan)}.dialog.amber .btns button.go{color:var(--amber)}
+.dialog .btns button:hover{background:var(--surface)}
+
+@media (max-width:860px){
+  .app{grid-template-columns:1fr;grid-template-rows:1fr auto}
+  nav.rail{flex-direction:row;padding:6px 8px 10px;border-right:0;border-top:1px solid var(--line);order:2}
+  .brand,.newchat,.recents,.rail .foot,.nav kbd,.nav button i{display:none}
+  .nav [data-nav=home]{display:flex}
+  .nav{flex-direction:row;width:100%}.nav button{flex:1;justify-content:center;padding:12px 2px;font-size:9.5px;letter-spacing:.08em}
+  .screen{padding:24px 16px 28px}
+  .start .greet{font-size:30px}
+  .clock{font-size:64px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail">
+    <div class="brand"><canvas id="mini" width="68" height="68"></canvas><b>Frosti</b></div>
+    <button class="newchat" id="newChat"><span>+</span>New chat</button>
+    <div class="nav" id="nav"></div>
+    <div class="recents"><div class="label">Recents</div><div id="recents"></div></div>
+    <div class="foot">
+      <div class="label"><span class="dot" id="linkDot"></span>&nbsp; <span id="linkText">Offline</span></div>
+      <div class="label"><span class="dot" id="phoneDot"></span>&nbsp; <span id="phoneText">Phone —</span></div>
+    </div>
+  </nav>
+  <main>
+    <!-- HOME -->
+    <section class="screen" data-s="home">
+      <div class="start">
+        <canvas id="homeCore" width="1120" height="490" title="Poke Frosti"></canvas>
+        <div class="greet" id="greet"></div>
+        <div class="hint" data-hint></div>
+        <form class="input" id="homeForm" autocomplete="off">
+          <input id="homeCmd" placeholder="How can I help you today?" aria-label="Command">
+          <button class="send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </form>
+        <div class="quick">
+          <button data-cmd="what's the laptop cpu">Laptop status</button>
+          <button data-cmd="phone battery">Phone battery</button>
+          <button data-cmd="set a timer for 25 minutes for focus">Focus 25 min</button>
+          <button data-go="tools">All tools</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TALK -->
+    <section class="screen" data-s="talk">
+      <div class="talk">
+        <div class="talkhead">
+          <canvas id="talkCore" width="448" height="196"></canvas>
+          <div>
+            <div class="state" data-state style="font-size:14px"></div>
+            <div class="hint" data-hint></div>
+            <div class="ind label">
+              <span><span class="dot" id="tLink"></span>&nbsp; <span id="tLinkT">Core</span></span>
+              <span><span class="dot" id="tPhone"></span>&nbsp; <span id="tPhoneT">Phone mic</span></span>
+              <span id="meta" class="dim"></span>
+            </div>
+          </div>
+        </div>
+        <div class="log" id="log"></div>
+        <form class="input" id="form" autocomplete="off">
+          <input id="cmd" placeholder="Reply to Frosti…" aria-label="Command">
+          <button class="send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </form>
+      </div>
+    </section>
+
+    <!-- SYSTEM -->
+    <section class="screen" data-s="system">
+      <h1>System</h1><div class="sub">Laptop core and phone, live. History covers the last two minutes.</div>
+      <div class="grid">
+        <div><div class="label section">Laptop core</div><div id="sysLaptop"></div></div>
+        <div><div class="label section">Phone</div><div id="sysPhone"></div></div>
+        <div><div class="label section">Intelligence</div><div id="sysAI"></div></div>
+        <div><div class="label section">Services</div><div id="sysSvc"></div></div>
+      </div>
+    </section>
+
+    <!-- TOOLS -->
+    <section class="screen" data-s="tools">
+      <h1>Tools</h1><div class="sub">Everything FROSTI can do. Click to run, or just ask.</div>
+      <div class="grid" id="tools"></div>
+    </section>
+
+    <!-- MEMORY -->
+    <section class="screen" data-s="memory">
+      <h1>Memory</h1><div class="sub">What FROSTI knows, has done, and is waiting on.</div>
+      <div class="chips" id="chips"></div>
+      <div id="mem" style="max-width:860px"></div>
+    </section>
+
+    <!-- ACTIVITY -->
+    <section class="screen" data-s="activity">
+      <h1>Activity</h1><div class="sub" id="actSum">Every action FROSTI took, from the append-only audit log. Updates live.</div>
+      <div class="chips" id="actChips"></div>
+      <div id="act" style="max-width:860px"></div>
+    </section>
+
+    <!-- SETUP -->
+    <section class="screen" data-s="setup">
+      <h1>Setup</h1><div class="sub">Model, voice, pairing, privacy and look.</div>
+      <div class="grid" id="setup"></div>
+    </section>
+  </main>
+</div>
+
+<div class="overlay" id="boot"><div class="box">
+  <canvas id="bootCore" width="640" height="280"></canvas>
+  <div class="word">FROSTI</div>
+  <div class="label cyan" style="margin-top:12px;opacity:.6">Personal core</div>
+  <div class="log label" id="bootLog"></div>
+</div></div>
+
+<div class="overlay" id="idle"><div class="box">
+  <canvas id="idleCore" width="512" height="224"></canvas>
+  <div class="clock" data-clock></div>
+  <div class="date" id="idleDate"></div>
+  <div class="label dim" id="idleInfo" style="margin-top:30px"></div>
+</div></div>
+
+<div class="overlay" id="modal"><div class="dialog" id="dialog"></div></div>
+
+<script src="/frosti.js"></script>
+<script>
+"use strict";
+const TOKEN = "__FROSTI_TOKEN__";
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pref = (k, d) => { try { const v = localStorage.getItem("frosti." + k); return v === null ? d : JSON.parse(v); } catch { return d; } };
+const setPref = (k, v) => { try { localStorage.setItem("frosti." + k, JSON.stringify(v)); } catch {} };
+
+// ---------------- the character: frosti.js plays frosti_anims.json, the same data the phone's CoreView plays ----------------
+function spark(g, cx, cy, r, rot, color) {
+  g.strokeStyle = color; g.lineWidth = r * .2; g.lineCap = "round"; g.beginPath();
+  for (let i = 0; i < 12; i++) { const a = rot + i * Math.PI / 6, l = r * [1, .72, .9, .66, .95, .75][i % 6];
+    g.moveTo(cx + Math.cos(a) * r * .12, cy + Math.sin(a) * r * .12); g.lineTo(cx + Math.cos(a) * l, cy + Math.sin(a) * l); }
+  g.stroke();
+}
+// The laptop has no audio of its own here (speech plays on the phone), so the bars follow a soft synthetic envelope.
+function level(state, t) { return state === "speaking" ? .35 + .3 * Math.abs(Math.sin(t * 9) * Math.sin(t * 3.3)) : .18 + .12 * Math.sin(t * 5); }
+const reduceMotion = () => pref("reduce", false) || matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+let ctl = null;  // one penguin, drawn on whichever of these canvases is visible
+const views = ["homeCore", "talkCore", "bootCore", "idleCore"].map(id => { const c = $("#" + id); return {c, g: c.getContext("2d")}; });
+const mini = {c: $("#mini"), g: $("#mini").getContext("2d"), spin: 0};
+fetch("/frosti_anims.json").then(r => r.json()).then(spec => {
+  ctl = new Frosti.Controller(spec, {walkIn: pref("bootAnim", true) && !reduceMotion()});
+  if (!S.linked) ctl.setLink(false, S.state === "error");
+  else ctl.state(S.state);
+});
+let lastMs = 0, lastDraw = 0;
+function frame(ms) {
+  const t = ms / 1000, dt = lastMs ? Math.min(250, ms - lastMs) : 0, busy = ["listening", "thinking", "speaking"].includes(S.state);
+  lastMs = ms;
+  if (ctl) ctl.tick(dt);  // every frame, so timing holds even when drawing is throttled
+  if (ms - lastDraw >= (reduceMotion() ? 50 : busy ? 0 : 40)) {  // 60 fps only while active (docs/UI.md budget)
+    lastDraw = ms;
+    const lv = busy && S.state !== "thinking" ? level(S.state, t) : 0;
+    if (ctl) for (const v of views) if (v.c.offsetParent !== null) ctl.draw(v.g, v.c.width, v.c.height, {level: lv, time: t});
+    const m = mini.c; mini.g.clearRect(0, 0, m.width, m.height);
+    if (busy && !reduceMotion()) mini.spin += .05;
+    spark(mini.g, m.width / 2, m.height / 2, m.width * .42, mini.spin, S.state === "offline" ? "#73726c" : S.state === "error" ? "#e8b931" : "#d97757");
+  }
+  requestAnimationFrame(frame);
+}
+
+// ---------------- state + socket ----------------
+const S = {linked: false, state: "offline", stats: null, memory: null, hist: {cpu: [], ram: [], rx: [], tx: []}, lastNet: null, screen: "home", memTab: "Recent"};
+let ws, pending = 0;
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/`);
+  ws.onopen = () => { ws.send(JSON.stringify({type: "hello", token: TOKEN, client: "desk"})); S.linked = true; ctl?.setLink(true); setState("idle"); send({type: "memory"}); send({type: "stats"}); };
+  ws.onmessage = e => { if (typeof e.data === "string") onEvent(JSON.parse(e.data)); };
+  ws.onclose = e => { S.linked = false; ctl?.setLink(false, e.code === 4001); setState(e.code === 4001 ? "error" : "offline"); setTimeout(connect, 3000); };
+}
+const send = m => { if (ws && ws.readyState === 1) { ws.send(JSON.stringify(m)); return true; } return false; };
+function command(text, go = true) {
+  const ok = send({type: "text", text});
+  addMsg("you", "You", text);
+  if (!ok) addMsg("notice", "Frosti", "Not linked to the Core, so that wasn't sent.");
+  if (go) show("talk");
+}
+
+function onEvent(m) {
+  const ph = m.src === "phone";
+  switch (m.type) {
+    case "state": setState(m.state); break;
+    case "heard": if (m.text) addMsg("you", ph ? "You · via phone" : "You · voice", `“${m.text}”`); break;
+    case "reply":
+      addMsg("frosti", ph ? "Frosti · on phone" : "Frosti", m.text, m.detail);
+      $("#meta").textContent = `${m.path} path · ${m.seconds} s`;
+      ctl?.reply({tool: m.tool, detail: m.detail, seconds: m.seconds, spoken: ph});
+      if (!ph) send({type: "memory"});
+      if (S.screen === "activity") send({type: "log"});
+      break;
+    case "log": S.log = m.entries; renderActivity(); break;
+    case "activity": ctl?.activity(m.name, m.args || {}); break;
+    case "notify": ctl?.notify(); addMsg("notice", "Frosti · notice", m.text); break;
+    case "confirm": confirmAction(m); break;
+    case "stats": onStats(m); ctl?.stats({cpu: m.cpu, battery: m.phone_stats?.battery, charging: m.phone_stats?.charging}); break;
+    case "memory": S.memory = m; renderMemory(); renderTools(); break;
+  }
+}
+
+function caption() {
+  return ({listening: ["Listening", "Speak to the phone — it's streaming to the Core."], thinking: ["Thinking", S.verb],
+    speaking: ["Speaking", "Replying through the phone speaker."], error: ["Link error", "The Core rejected this console's token. Reload the page."],
+    offline: ["Offline", "Can't reach the Core. Retrying…"]})[S.state] || ["Ready", "Type below, or say “Hey Frosti” to the phone."];
+}
+const VERBS = ["Pondering…", "Noodling…", "Mulling it over…", "Waddling through it…", "Chilling on it…", "Defrosting…", "Brewing an answer…", "Flippering…"];
+function setState(s) {
+  if (s === "thinking" && S.state !== "thinking") S.verb = VERBS[Math.floor(Math.random() * VERBS.length)];  // Claude Code-style, one per think
+  S.state = !S.linked && s !== "error" ? "offline" : s;
+  if (S.linked) ctl?.state(S.state);  // offline / error come from the link (ws open / close)
+  const [l, h] = caption();
+  $$("[data-state]").forEach(e => { e.textContent = l.toUpperCase(); e.style.color = S.state === "error" ? "var(--amber)" : S.state === "offline" ? "var(--muted)" : "var(--cyan)"; });
+  $$("[data-hint]").forEach(e => e.textContent = h);
+  $("#linkDot").className = "dot " + (S.linked ? "on" : S.state === "error" ? "warn" : "");
+  $("#linkText").textContent = S.linked ? "Core linked" : S.state === "error" ? "Token rejected" : "Core offline";
+  $("#tLink").className = $("#linkDot").className;
+  if (["listening", "speaking"].includes(S.state) || S.state === "error") wake();
+}
+
+// ---------------- navigation ----------------
+const SCREENS = [["home", "Home"], ["talk", "Chat"], ["system", "System"], ["tools", "Tools"], ["memory", "Memory"], ["activity", "Activity"], ["setup", "Setup"]];
+$("#nav").innerHTML = SCREENS.map(([k, n], i) => `<button data-nav="${k}"><i></i>${n}<kbd>${i + 1}</kbd></button>`).join("");
+function show(k) {
+  S.screen = k;
+  $$(".screen").forEach(e => e.classList.toggle("on", e.dataset.s === k));
+  $$("[data-nav]").forEach(e => e.classList.toggle("on", e.dataset.nav === k));
+  if (k === "memory") send({type: "memory"});
+  if (k === "activity") { renderActivity(); send({type: "log"}); }
+  if (k === "setup") renderSetup();
+  if (k === "talk" || k === "home") setTimeout(() => $(k === "talk" ? "#cmd" : "#homeCmd").focus(), 50);
+  setState(S.state);  // the hint depends on the screen
+  setPref("screen", k);
+}
+document.addEventListener("click", e => {
+  const n = e.target.closest("[data-nav]"); if (n) return show(n.dataset.nav);
+  const g = e.target.closest("[data-go]"); if (g) return show(g.dataset.go);
+  const c = e.target.closest("[data-cmd]"); if (c) return command(c.dataset.cmd, c.dataset.stay === undefined);
+});
+document.addEventListener("keydown", e => {
+  wake();
+  if ($("#modal").classList.contains("on")) { if (e.key === "Escape") { const no = closeModal.no; closeModal(); no?.(); } return; }
+  if (e.target.tagName === "INPUT") return;
+  if (e.key >= "1" && e.key <= String(SCREENS.length)) show(SCREENS[+e.key - 1][0]);
+  if (e.key === "/") { e.preventDefault(); show("talk"); }
+});
+$("#homeCore").onclick = () => ctl?.poke();
+$("#newChat").onclick = () => { $("#log").innerHTML = ""; send({type: "new"}); show("home"); };  // the Core forgets the follow-up context too
+$("#homeForm").onsubmit = e => { e.preventDefault(); const t = $("#homeCmd").value.trim(); if (t) { command(t); $("#homeCmd").value = ""; } };
+$("#recents").onclick = e => { const b = e.target.closest("button"); if (b) { show("talk"); $("#cmd").value = b.textContent; } };
+function renderRecents() { $("#recents").innerHTML = pref("recent", []).map(t => `<button title="${esc(t)}">${esc(t)}</button>`).join(""); }
+$("#talkCore").onclick = () => ctl?.poke();
+for (const id of ["#homeCore", "#talkCore"]) {  // the penguin's eyes follow the pointer while it idles
+  const c = $(id), r = () => c.getBoundingClientRect();
+  c.onmousemove = e => ctl?.hover(Math.max(-1, Math.min(1, (e.clientX - r().left - r().width / 2) / (r().width / 4))));
+  c.onmouseleave = () => ctl?.hover(null);
+}
+$("#form").onsubmit = e => { e.preventDefault(); const t = $("#cmd").value.trim(); if (t) { command(t, false); $("#cmd").value = ""; } };
+
+// ---------------- talk log ----------------
+function addMsg(kind, who, text, detail = "") {
+  const d = document.createElement("div"); d.className = "msg " + kind;
+  d.innerHTML = (who === "You" || who === "Frosti" ? "" : `<div class="who label ${kind === "frosti" ? "cyan" : kind === "notice" ? "amber" : "dim"}">${esc(who)}</div>`) + `<div class="body">${esc(text)}</div>` +
+    (detail ? `<div class="det">${esc(detail)}</div>` : "");
+  if (kind === "you") { const t = text.replace(/^“|”$/g, ""); setPref("recent", [t, ...pref("recent", []).filter(x => x !== t)].slice(0, 12)); renderRecents(); }
+  const log = $("#log"); log.append(d); while (log.children.length > 80) log.firstChild.remove();
+  log.scrollTop = log.scrollHeight;
+}
+addMsg("frosti", "Frosti", "Type a command here, or talk to the phone. Phone conversations appear here too. Everything runs on this laptop, with no cloud.");
+
+// ---------------- system ----------------
+const gb = b => (b / 2 ** 30).toFixed(1);
+const dur = s => s >= 3600 ? `${s / 3600 | 0}h ${(s % 3600) / 60 | 0}m` : `${s / 60 | 0}m ${s % 60}s`;
+const stat = (name, value, frac = null, spark = null) => `<div class="stat"><div class="h"><span class="muted">${name}</span><span class="v ${frac > .85 ? "warn" : ""}">${esc(value)}</span></div>` +
+  (frac !== null ? `<div class="meter"><i class="${frac > .85 ? "warn" : ""}" style="width:${Math.min(100, Math.max(0, frac * 100))}%"></i></div>` : "") +
+  (spark ? `<canvas class="spark" data-spark="${spark}" width="600" height="92"></canvas>` : "") + `</div>`;
+const svc = (name, ok, value) => `<div class="row"><span class="dot ${ok ? "on" : "warn"}"></span><span class="t">${name}</span><span class="tag ${ok ? "" : "amber"}">${esc(value)}</span></div>`;
+function push(a, v) { a.push(v); if (a.length > 60) a.shift(); }
+function onStats(s) {
+  S.stats = s;
+  push(S.hist.cpu, s.cpu); push(S.hist.ram, s.ram);
+  const now = Date.now();
+  if (S.lastNet) { const dt = (now - S.lastNet[0]) / 1000; push(S.hist.rx, (s.net_recv - S.lastNet[1]) / 1024 / dt); push(S.hist.tx, (s.net_sent - S.lastNet[2]) / 1024 / dt); }
+  S.lastNet = [now, s.net_recv, s.net_sent];
+  const rx = S.hist.rx.at(-1) ?? 0, tx = S.hist.tx.at(-1) ?? 0, p = s.phone_stats;
+  $("#sysLaptop").innerHTML = stat("Processor", `${Math.round(s.cpu)}% · ${s.cores} cores`, s.cpu / 100, "cpu") +
+    stat("Memory", `${Math.round(s.ram)}% · ${gb(s.ram_used)} / ${gb(s.ram_total)} GB`, s.ram / 100, "ram") +
+    stat("Battery", s.battery == null ? "No battery" : `${s.battery}%${s.plugged ? " · plugged in" : ""}`, s.battery == null ? null : s.battery / 100) +
+    stat("Network", `↓ ${rx.toFixed(0)} KB/s   ↑ ${tx.toFixed(0)} KB/s`, null, "rx");
+  $("#sysPhone").innerHTML = s.phone && p ? stat("Battery", `${p.battery}%${p.charging ? " · charging" : ""}`, p.battery / 100) +
+    stat("Memory", `${gb(p.ram_total - p.ram_free)} / ${gb(p.ram_total)} GB`, (p.ram_total - p.ram_free) / p.ram_total) +
+    stat("Network", p.net) + stat("Link to laptop", `Linked · ${p.link}`)
+    : `<div class="empty">${s.phone ? "Phone linked. Its readings arrive when its System screen is open." : "Phone not linked. Run scripts\\start-frosti.ps1 with the phone on USB."}</div>`;
+  $("#sysAI").innerHTML = stat("Active model", s.model) + stat("Language model", s.llm ? "Ready" : "Warming up") + stat("Voice", s.voice ? s.voice_name : "Off") + stat("Core uptime", dur(s.uptime));
+  $("#sysSvc").innerHTML = svc("Gateway", true, s.gateway) + svc("Language model", s.llm, s.llm ? "Ready" : "Warming") +
+    svc("Speech + wake word", s.voice, s.voice ? "Ready" : "Off") + svc("Phone link", s.phone, s.phone ? "Linked" : "Waiting") + svc("Laptop console", true, "This page");
+  $("#phoneDot").className = "dot " + (s.phone ? "on" : ""); $("#phoneText").textContent = s.phone ? "Phone linked" : "Phone offline";
+  $("#tPhone").className = $("#phoneDot").className; $("#tPhoneT").textContent = s.phone ? "Phone mic" : "Phone offline";
+  $$("[data-spark]").forEach(c => sparkline(c, S.hist[c.dataset.spark], c.dataset.spark === "rx" ? null : 100));
+  if (S.screen === "setup") renderSetup();
+}
+function sparkline(c, data, max) {
+  const g = c.getContext("2d"), W = c.width, H = c.height; g.clearRect(0, 0, W, H);
+  if (data.length < 2) return;
+  const m = max || Math.max(8, ...data) * 1.2, x = i => i * W / 59, y = v => H - 4 - (v / m) * (H - 8);
+  const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, "rgba(217,119,87,.25)"); gr.addColorStop(1, "rgba(217,119,87,0)");
+  const off = 60 - data.length;
+  g.beginPath(); data.forEach((v, i) => g[i ? "lineTo" : "moveTo"](x(i + off), y(v)));
+  g.strokeStyle = "#d97757"; g.lineWidth = 2; g.stroke();
+  g.lineTo(x(59), H); g.lineTo(x(off), H); g.fillStyle = gr; g.fill();
+}
+
+// ---------------- tools ----------------
+function renderTools() {
+  const projects = (S.memory?.projects || []).map(p => p.name);
+  const row = (title, hint, attrs, tag = "›", amber = false) =>
+    `<button class="row" ${attrs}><span class="t"><div>${esc(title)}</div><div class="label">${esc(hint)}</div></span><span class="tag ${amber ? "amber" : ""}">${tag}</span></button>`;
+  const cmd = (title, text, tag, amber) => row(title, `“${text}”`, `data-cmd="${esc(text)}"`, tag, amber);
+  const ask = (title, hint, q, tpl, tag, amber) => row(title, hint, `data-ask="${esc(q)}" data-tpl="${esc(tpl)}"`, tag, amber);
+  $("#tools").innerHTML = [
+    `<div><div class="label section">Launch</div>` + ask("Open on laptop…", "“open chrome on the laptop”", "App name", "open {} on the laptop") +
+      ask("Open on phone…", "“open spotify on my phone”", "App name", "open {} on my phone") +
+      projects.map(p => cmd(`Open ${p} in VS Code`, `open ${p} in vs code`)).join("") + `</div>`,
+    `<div><div class="label section">Phone controls</div>` +
+      `<div class="stat"><div class="h"><span>Brightness</span><span class="tag" id="bv">50%</span></div><input class="range" type="range" min="0" max="100" value="50" data-slider="brightness"></div>` +
+      `<div class="stat"><div class="h"><span>Volume</span><span class="tag" id="vv">50%</span></div><input class="range" type="range" min="0" max="100" value="50" data-slider="volume"></div>` +
+      cmd("Mute phone", "mute the phone") + `</div>`,
+    `<div><div class="label section">Status</div>` + cmd("Laptop processor", "what's the laptop cpu") + cmd("Laptop memory", "laptop ram usage") +
+      cmd("Laptop storage", "laptop storage") + cmd("Phone battery", "phone battery") + `</div>`,
+    `<div><div class="label section">Automation</div>` + ask("Timer…", "“set a timer for 10 minutes”", "Minutes", "set a timer for {} minutes") +
+      cmd("Focus session", "set a timer for 25 minutes for focus") +
+      projects.map(p => cmd(`Run tests · ${p}`, `run the tests for ${p}`) + cmd(`Git status · ${p}`, `git status for ${p}`)).join("") +
+      ask("PowerShell…", "Runs on the laptop after you confirm", "Command", "use powershell to run: {}", "Confirm", true) +
+      ask("Close a laptop app…", "“kill notepad”", "Process name", "kill {}", "Confirm", true) + `</div>`,
+    `<div><div class="label section">Memory</div>` + ask("Remember…", "“remember that …”", "A fact about you", "remember that {}") +
+      ask("Recall…", "“what do you know about …”", "Topic", "what do you know about {}") + `</div>`,
+  ].join("");
+}
+document.addEventListener("click", e => {
+  const a = e.target.closest("[data-ask]"); if (!a) return;
+  prompt_(a.dataset.ask, v => command(a.dataset.tpl.replace("{}", v)));
+});
+document.addEventListener("input", e => { if (e.target.dataset.slider) $(e.target.dataset.slider === "brightness" ? "#bv" : "#vv").textContent = e.target.value + "%"; });
+document.addEventListener("change", e => { const s = e.target.dataset.slider; if (s) command(`set ${s} to ${e.target.value}`, false); });
+
+// ---------------- memory ----------------
+const ago = ts => { const s = Date.now() / 1000 - ts; return s < 60 ? "just now" : s < 3600 ? `${s / 60 | 0}m ago` : s < 86400 ? `${s / 3600 | 0}h ago` : `${s / 86400 | 0}d ago`; };
+$("#chips").innerHTML = ["Recent", "Facts", "Projects", "Tasks"].map(t => `<button data-tab="${t}">${t}</button>`).join("");
+$("#chips").onclick = e => { const b = e.target.closest("[data-tab]"); if (b) { S.memTab = b.dataset.tab; renderMemory(); } };
+function renderMemory() {
+  $$("[data-tab]").forEach(b => b.classList.toggle("on", b.dataset.tab === S.memTab));
+  const m = S.memory, el = $("#mem");
+  if (!m) { el.innerHTML = `<div class="empty">${S.linked ? "Loading…" : "Memory lives in the Core. Waiting for the link."}</div>`; return; }
+  const line = (title, hint, tag = "", amber = false, attrs = "") =>
+    `<${attrs ? "button" : "div"} class="row" ${attrs}><span class="t"><div>${esc(title)}</div><div class="label">${esc(hint)}</div></span><span class="tag ${amber ? "amber" : ""}">${esc(tag)}</span></${attrs ? "button" : "div"}>`;
+  let h = "";
+  if (S.memTab === "Recent") {
+    h += `<div class="label section">Conversation</div>` + (m.history.length ? m.history.map(e =>
+      `<div class="msg ${e.role === "user" ? "you" : ""}"><div class="who label ${e.role === "user" ? "dim" : "cyan"}">${e.role === "user" ? "You" : "Frosti"}</div><div class="body">${esc(e.content)}</div></div>`).join("") : `<div class="empty">Nothing said yet this session.</div>`);
+    h += `<div class="label section">Actions</div>` + (m.recent.length ? m.recent.map(e => line(e.result || e.tool, `${e.tool} · ${e.source} · ${ago(e.ts)}`,
+      e.approved ? `T${e.tier}` : "Declined", !e.approved || e.tier >= 2)).join("") : `<div class="empty">No actions yet.</div>`);
+  } else if (S.memTab === "Facts") {
+    h += line("Remember something new", "Click to add", "+", false, `data-ask="A fact about you" data-tpl="remember that {}"`);
+    h += m.facts.length ? m.facts.map(f => line(f.fact, ago(f.ts), "Forget", true, `data-forget="${f.id}" data-fact="${esc(f.fact)}"`)).join("")
+      : `<div class="empty">No stored facts yet. Try “remember that I prefer dark themes”.</div>`;
+  } else if (S.memTab === "Projects") {
+    h += m.projects.length ? m.projects.map(p => `<div class="label section">${esc(p.name)} · <span class="dim">${esc(p.path)}</span></div>` +
+      [["Git status", `git status for ${p.name}`], ["Recent commits", `show the recent commits in ${p.name}`], ["Run tests", `run the tests for ${p.name}`], ["Open in VS Code", `open ${p.name} in vs code`]]
+        .map(([t, c]) => line(t, `“${c}”`, "›", false, `data-cmd="${esc(c)}"`)).join("")).join("")
+      : `<div class="empty">No projects configured in core/config/frosti.toml.</div>`;
+  } else {
+    h += line("New timer", "Minutes, with an optional label", "+", false, `data-ask="Minutes" data-tpl="set a timer for {} minutes"`);
+    h += m.timers.length ? m.timers.map(t => line(t.label || "Timer", `${dur(Math.max(0, Math.round(t.due - Date.now() / 1000)))} left`, "●")).join("")
+      : `<div class="empty">No timers or reminders running.</div>`;
+  }
+  el.innerHTML = h;
+}
+document.addEventListener("click", e => {
+  const f = e.target.closest("[data-forget]"); if (!f) return;
+  dialog({title: "Forget this?", text: f.dataset.fact, yes: "Forget", amber: true, onYes: () => send({type: "forget", id: +f.dataset.forget})});
+});
+
+// ---------------- activity ----------------
+const ACT_TABS = {All: () => true, Phone: e => e.source === "phone", Laptop: e => e.source === "desk", Declined: e => !e.approved, Risky: e => e.tier >= 2};
+S.actTab = "All";
+$("#actChips").innerHTML = Object.keys(ACT_TABS).map(t => `<button data-act="${t}">${t}</button>`).join("");
+$("#actChips").onclick = e => { const b = e.target.closest("[data-act]"); if (b) { S.actTab = b.dataset.act; renderActivity(); } };
+function renderActivity() {
+  $$("[data-act]").forEach(b => b.classList.toggle("on", b.dataset.act === S.actTab));
+  const el = $("#act"), all = S.log;
+  if (!all) { el.innerHTML = `<div class="empty">${S.linked ? "Loading…" : "The activity log lives in the Core. Waiting for the link."}</div>`; return; }
+  const today = new Date().setHours(0, 0, 0, 0) / 1000, t = all.filter(e => e.ts >= today);
+  $("#actSum").textContent = `${t.length} actions today · ${t.filter(e => !e.approved).length} declined · ${t.filter(e => e.source === "phone").length} from the phone. Updates live.`;
+  const rows = all.filter(ACT_TABS[S.actTab]);
+  let h = "", day = "";
+  for (const e of rows) {
+    const d = new Date(e.ts * 1000), ds = d.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"});
+    if (ds !== day) { day = ds; h += `<div class="label section">${esc(ds)}</div>`; }
+    const args = e.args && e.args !== "{}" ? ` · ${e.args}` : "";
+    h += `<div class="row" title="${esc(e.result)}"><span class="t"><div>${esc(e.result || e.tool)}</div>` +
+      `<div class="label">${d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", hour12: false})} · ${esc(e.tool)} · ${e.source === "desk" ? "laptop" : esc(e.source)}${esc(args)}</div></span>` +
+      `<span class="tag ${!e.approved || e.tier >= 2 ? "amber" : ""}">${e.approved ? `T${e.tier}` : "Declined"}</span></div>`;
+  }
+  el.innerHTML = h || `<div class="empty">${all.length ? "Nothing matches this filter." : "No actions yet. Ask FROSTI to do something."}</div>`;
+}
+
+// ---------------- setup ----------------
+function renderSetup() {
+  const s = S.stats || {}, val = (title, hint, v, warn) => `<div class="row"><span class="t"><div>${title}</div><div class="label">${esc(hint)}</div></span><span class="tag ${warn ? "amber" : ""}">${esc(v)}</span></div>`;
+  const tog = (title, hint, k, d) => `<button class="row" data-pref="${k}" data-def="${d}"><span class="t"><div>${title}</div><div class="label">${hint}</div></span><span class="tag ${pref(k, d) ? "" : "dim"}">${pref(k, d) ? "On" : "Off"}</span></button>`;
+  const idle = pref("idle", 180);
+  $("#setup").innerHTML = [
+    `<div><div class="label section">AI model</div>` + val("Model", "Local · llama.cpp on this laptop", s.model || "—") +
+      val("State", "Fast-path rules first, then the model", s.llm ? "Ready" : S.stats ? "Warming" : "—", S.stats && !s.llm) +
+      val("Change model", "Edit [llm] model in core/config/frosti.toml", "Config") + `</div>`,
+    `<div><div class="label section">Voice</div>` + val("Voice", "Piper text-to-speech", s.voice ? s.voice_name : "Off", S.stats && !s.voice) +
+      val("Wake word", "“Hey Frosti” · detected on this laptop", "On") + val("Follow-up window", "Keep listening after a reply", "6 s") + `</div>`,
+    `<div><div class="label section">Device pairing</div>` + val("Gateway", "Phone over USB via adb reverse", s.gateway || "—") +
+      val("Phone", "Paired with scripts\\provision-phone.ps1", s.phone ? "Linked" : "Not linked", !s.phone) +
+      val("This console", "Loopback only · token injected by the Core", S.linked ? "Linked" : "Offline", !S.linked) + `</div>`,
+    `<div><div class="label section">Privacy & permissions</div>` + val("Confirmations", "Commits, kills and PowerShell always ask", "Always", true) +
+      val("Audit log", "Append-only, in data\\frosti.db", "On") + val("Cloud AI", "No cloud services or paid APIs", "None") + `</div>`,
+    `<div><div class="label section">Appearance</div>` + tog("Boot animation", "When the console opens", "bootAnim", true) +
+      `<button class="row" id="idleBtn"><span class="t"><div>Ambient clock</div><div class="label">After no input for</div></span><span class="tag">${idle ? (idle < 60 ? idle + " s" : idle / 60 + " min") : "Never"}</span></button>` +
+      tog("Reduce motion", "Calmer core, no boot animation", "reduce", false) + `</div>`,
+  ].join("");
+}
+document.addEventListener("click", e => {
+  const p = e.target.closest("[data-pref]"); if (p) { setPref(p.dataset.pref, !pref(p.dataset.pref, p.dataset.def === "true")); renderSetup(); }
+  if (e.target.closest("#idleBtn")) { const st = [60, 180, 300, 600, 0]; setPref("idle", st[(st.indexOf(pref("idle", 180)) + 1) % st.length]); renderSetup(); wake(); }
+});
+
+// ---------------- dialogs ----------------
+function dialog({title, text = "", input = null, yes = "Go", amber = false, onYes, onNo}) {
+  const d = $("#dialog"); d.className = "dialog" + (amber ? " amber" : "");
+  d.innerHTML = `<div class="label ${amber ? "amber" : "cyan"}" style="font-size:12px">${esc(title)}</div>` + (text ? `<p>${esc(text)}</p>` : "") +
+    (input !== null ? `<input id="dlgIn" placeholder="${esc(input)}">` : "") + `<div class="btns"><button id="dlgNo">Cancel</button><button class="go" id="dlgYes">${esc(yes)}</button></div>`;
+  $("#modal").classList.add("on");
+  const done = ok => { closeModal(); ok ? onYes?.($("#dlgIn")?.value.trim()) : onNo?.(); };
+  $("#dlgYes").onclick = () => done(true); $("#dlgNo").onclick = () => done(false);
+  d.onkeydown = e => { if (e.key === "Enter") done(true); };
+  ($("#dlgIn") || $("#dlgYes")).focus();
+  closeModal.no = onNo;
+}
+function closeModal() { $("#modal").classList.remove("on"); }
+function prompt_(label, cb) { dialog({title: label, input: label, onYes: v => v && cb(v)}); }
+function confirmAction(m) {
+  wake();
+  ctl?.confirm();
+  dialog({title: m.tier >= 3 ? "Confirm · irreversible" : "Confirm action", text: m.summary, yes: "Do it", amber: true,
+    onYes: () => { ctl?.decided(true); send({type: "confirm", id: m.id, ok: true}); },
+    onNo: () => { ctl?.decided(false); send({type: "confirm", id: m.id, ok: false}); }});
+}
+
+// ---------------- clock, boot, idle ----------------
+function tick() {
+  const d = new Date(), hm = d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", hour12: false}), hr = d.getHours();
+  $$("[data-clock]").forEach(e => e.textContent = hm);
+  $("#greet").textContent = hr < 5 ? "Still up?" : hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening";
+  $("#idleDate").textContent = d.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"});
+  $("#idleInfo").textContent = `${S.linked ? "Core linked" : "Core offline"} · ${S.stats?.phone ? "Phone linked" : "Phone offline"}`;
+  if (S.linked) send({type: "stats"});
+  if (S.screen === "memory" && S.memTab === "Tasks") renderMemory();
+}
+let idleTimer;
+function wake() {
+  if ($("#idle").classList.contains("on")) { $("#idle").classList.remove("on"); ctl?.sleep(false); }
+  clearTimeout(idleTimer);
+  const s = pref("idle", 180); if (s) idleTimer = setTimeout(sleep, s * 1000);
+}
+function sleep() {
+  if (["listening", "thinking", "speaking"].includes(S.state) || $("#modal").classList.contains("on")) return wake();
+  $("#idle").classList.add("on"); ctl?.sleep(true);
+}
+["mousemove", "mousedown", "wheel", "touchstart"].forEach(ev => document.addEventListener(ev, wake, {passive: true}));
+function boot() {
+  if (!pref("bootAnim", true) || reduceMotion()) return;
+  const b = $("#boot"); b.classList.add("on");  // the penguin walks in (Controller walkIn)
+  $("#bootLog").innerHTML = [["Core", "online"], ["Console", "loopback"], ["Link", "connecting"]].map(([k, v]) => `<div>${k.padEnd(9, " ")}··········&nbsp;&nbsp;${v}</div>`).join("");
+  setTimeout(() => $("#boot .word").classList.add("in"), 700);
+  $$("#bootLog div").forEach((e, i) => setTimeout(() => e.classList.add("in"), 1300 + i * 250));
+  const end = () => { b.style.transition = "opacity .35s"; b.style.opacity = 0; setTimeout(() => { b.classList.remove("on"); b.style.opacity = ""; }, 350); };
+  b.onclick = end; setTimeout(end, 2600);
+}
+
+renderTools(); renderMemory(); renderRecents();
+show(pref("screen", "home"));
+boot(); tick(); setInterval(tick, 2000); wake();
+setState("offline"); connect();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

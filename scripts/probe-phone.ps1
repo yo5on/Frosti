@@ -1,7 +1,7 @@
 # Read-only probe of the connected phone for Phase 0. Changes nothing on the device.
 # Prereq: Settings > About phone > Software information > tap "Build number" 7x,
 #         then Developer options > USB debugging ON, plug in, accept the RSA prompt.
-param([string]$Adb = 'D:\sparky-tools\platform-tools\adb.exe',
+param([string]$Adb = 'D:\frosti-tools\platform-tools\adb.exe',
       [string]$Out = (Join-Path $PSScriptRoot '..\docs\phone-probe.txt'))
 
 $devs = & $Adb devices | Select-String '\tdevice$'

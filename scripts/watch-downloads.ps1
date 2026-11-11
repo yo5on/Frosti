@@ -1,5 +1,5 @@
 # Live view of fetch-models.ps1 progress. Ctrl-C to stop.
-param([string]$Root = 'D:\sparky-models')
+param([string]$Root = 'D:\frosti-models')
 $total = [ordered]@{
   'Qwen3.5-4B-Q4_K_M.gguf' = 2614
   'sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2' = 460
@@ -21,7 +21,7 @@ while ($true) {
     '{0,-55} [{1}] {2,3}%  {3,5}/{4,5} MB  {5}' -f $k, $bar, $pct, $mb, $total[$k], $state
   }
   Clear-Host
-  "SPARKY model downloads  $(Get-Date -Format HH:mm:ss)   (Ctrl-C to close)`n"
+  "FROSTI model downloads  $(Get-Date -Format HH:mm:ss)   (Ctrl-C to close)`n"
   $lines
   Start-Sleep 5
 }

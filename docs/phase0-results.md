@@ -1,7 +1,7 @@
-# SPARKY Phase 0 — measured results
+# FROSTI Phase 0 — measured results
 
 Measured on 2026-11-11 on the HP EliteBook 840 G5 (i7-8650U, 16 GB, plugged in) and the Galaxy J7 Pro (SM-J730GM).
-To reproduce: `bench/llm_tools.py`, `bench/speech.py`, `scripts/probe-phone.ps1`. Model files are in `D:\sparky-models` (`scripts/fetch-models.ps1`).
+To reproduce: `bench/llm_tools.py`, `bench/speech.py`, `scripts/probe-phone.ps1`. Model files are in `D:\frosti-models` (`scripts/fetch-models.ps1`).
 
 ## 1. LLM (llama.cpp b12262, `llama-server`, CPU, 4 threads, ctx 4096)
 
@@ -14,7 +14,7 @@ To reproduce: `bench/llm_tools.py`, `bench/speech.py`, `scripts/probe-phone.ps1`
 
 The iGPU is about 2× slower. **Run CPU-only.**
 
-### SPARKY tool-calling benchmark (32 cases, 13 tools, temperature 0, thinking off)
+### FROSTI tool-calling benchmark (32 cases, 13 tools, temperature 0, thinking off)
 
 | | Qwen3.5-4B Q4_K_M | **Gemma 4 E4B-it Q4_0** |
 |---|---|---|
@@ -29,7 +29,7 @@ The iGPU is about 2× slower. **Run CPU-only.**
 | Generation speed (median) | 4.5 tok/s | 4.5 tok/s |
 
 Failures:
-- Gemma: "push sparky to github" → asked *"What is the name of the project you want to push?"*. "remind me in half an hour" → asked *"What should I remind you about?"* Both are clarifying questions, not wrong actions, so they are safe failures.
+- Gemma: "push frosti to github" → asked *"What is the name of the project you want to push?"*. "remind me in half an hour" → asked *"What should I remind you about?"* Both are clarifying questions, not wrong actions, so they are safe failures.
 - Qwen: none.
 
 Both runs overlapped with background model downloads (curl), so absolute numbers may be a few percent pessimistic.
@@ -43,7 +43,7 @@ Both runs overlapped with background model downloads (curl), so absolute numbers
 
 ## 2. Speech (sherpa-onnx 1.13.8, Python, 4 threads unless noted)
 
-ASR test clips are 10 SPARKY commands voiced by Piper and resampled to 16 kHz. That is clean synthetic audio, so expect real-mic WER to be higher. Re-test in Phase 2 with the phone mic.
+ASR test clips are 10 FROSTI commands voiced by Piper and resampled to 16 kHz. That is clean synthetic audio, so expect real-mic WER to be higher. Re-test in Phase 2 with the phone mic.
 
 ### ASR
 
@@ -65,7 +65,7 @@ Kokoro misses the proposal's "<1 s for the first sentence" bar and is slower tha
 
 ### Wake word
 
-| Model | "HEY SPARKY" detected | False alarms | RTF (1 thread, laptop) |
+| Model | "HEY FROSTI" detected | False alarms | RTF (1 thread, laptop) |
 |---|---|---|---|
 | KWS Zipformer gigaspeech 3.3M | 3/3 | 0/4 | 0.05–0.07 |
 
@@ -95,7 +95,7 @@ Kokoro misses the proposal's "<1 s for the first sentence" bar and is slower tha
 | Runtime | llama-server CPU, 4 threads, default slots, prefix warmed at startup | Vulkan is slower; prefix caching works out of the box |
 | Laptop ASR | **Parakeet TDT 0.6B v2 int8** | 0 % WER at 0.5 s per command; Moonshine is the low-latency fallback |
 | Laptop TTS | **Piper en_GB alan-medium**, sentence-streamed | 0.1 s to first audio. Northern English male is an alternative voice; drop Kokoro |
-| Wake word | KWS gigaspeech 3.3M, "HEY SPARKY" | Reliable and very cheap |
+| Wake word | KWS gigaspeech 3.3M, "HEY FROSTI" | Reliable and very cheap |
 | Phone offline commands | **KWS spotter with a fixed phrase list** (not streaming ASR) | The 20M streaming ASR is unusable (56–63 % WER) |
 | Speech runtime | sherpa-onnx **pinned to 1.13.8** | 2.x dropped the espeak-ng frontend that Piper needs |
 
@@ -107,7 +107,7 @@ Kokoro misses the proposal's "<1 s for the first sentence" bar and is slower tha
 4. Satellite mode uses the KWS phrase list instead of streaming ASR.
 5. Kokoro is out; Piper stays.
 
-These changes are already applied to `docs/SPARKY_Technical_Proposal.md`.
+These changes are already applied to `docs/FROSTI_Technical_Proposal.md`.
 
 ## 5. Next: Phase 1 — core brain (text-only)
 

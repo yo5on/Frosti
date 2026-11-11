@@ -3,7 +3,7 @@
 __pycache__/
 *.pyc
 
-# Model weights and large binaries live on D:\sparky-models / D:\sparky-tools, never in git
+# Model weights and large binaries live on D:\frosti-models / D:\frosti-tools, never in git
 *.gguf
 *.onnx
 *.bin

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "anim-gallery",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8790", "-d", "core/frosti_core/anim"],
+      "port": 8790
+    }
+  ]
+}

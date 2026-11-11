@@ -1,18 +1,19 @@
-"""Phase 0 benchmark: SPARKY tool-calling accuracy + latency for a local GGUF model.
+"""Phase 0 benchmark: FROSTI tool-calling accuracy + latency for a local GGUF model.
 
 Starts llama-server, sends each test case through the OpenAI-compatible chat API with
-SPARKY's tool set, and checks the chosen tool and arguments. Stdlib only.
+FROSTI's tool set, and checks the chosen tool and arguments. Stdlib only.
 
-usage: python bench/llm_tools.py --model D:/sparky-models/x.gguf [--llama D:/sparky-tools/llama-cpu]
+usage: python bench/llm_tools.py --model D:/frosti-models/x.gguf [--llama D:/frosti-tools/llama-cpu]
 """
 import argparse, json, statistics, subprocess, sys, time, urllib.request
 from pathlib import Path
 
 PORT = 8091
-SYSTEM = (
-    "You are SPARKY, a concise local assistant that controls the user's Android phone and Windows laptop. "
+SYSTEM = (  # keep in sync with core/frosti_core/llm.py
+    "You are FROSTI, a concise local assistant that controls the user's Android phone and Windows laptop. "
+    "Like Claude, you are warm and a little playful, but you act first: if a tool fits, call it instead of asking a question. No emoji. "
     "When a request maps to a tool, call exactly one tool with correct arguments. "
-    "If no tool fits (small talk, general knowledge), answer in one short sentence without calling a tool."
+    "If no tool fits (small talk, general knowledge), answer in one short, friendly sentence without calling a tool."
 )
 
 def tool(name, desc, props, required):
@@ -31,8 +32,10 @@ TOOLS = [
     tool("run_powershell", "Run an arbitrary PowerShell command on the laptop (requires user confirmation)", {"command": S}, ["command"]),
     tool("set_timer", "Start a countdown timer", {"minutes": I, "label": S}, ["minutes"]),
     tool("remember", "Store a fact about the user for later", {"fact": S}, ["fact"]),
-    tool("recall", "Search SPARKY's memory", {"query": S}, ["query"]),
-    tool("kill_process", "Terminate a laptop process by name", {"name": S}, ["name"]),
+    tool("recall", "Search FROSTI's memory", {"query": S}, ["query"]),
+    tool("kill_process", "Close or terminate a laptop program by app or process name", {"name": S}, ["name"]),
+    tool("play_music", "Play a song, artist or playlist", {"query": S, "device": {"type": "string", "enum": ["phone", "laptop"]}}, ["query", "device"]),
+    tool("media_control", "Pause, resume or skip the music that is playing", {"action": {"type": "string", "enum": ["play", "pause", "next", "previous"]}, "device": {"type": "string", "enum": ["phone", "laptop"]}}, ["action", "device"]),
     tool("describe_screen", "Look at the current screen and describe it", {"device": {"type": "string", "enum": ["phone", "laptop"]}}, ["device"]),
 ]
 
@@ -54,26 +57,31 @@ CASES = [
     ("make the screen as bright as possible", "set_brightness", {"level": eq(100)}),
     ("turn the volume down to 20", "set_volume", {"level": eq(20)}),
     ("mute the phone", "set_volume", {"level": eq(0)}),
-    (r"open E:\sparky in vs code", "open_vscode", {"path": has("sparky")}),
-    ("git status for sparky", "git", {"project": has("sparky"), "action": eq("status")}),
-    ("show me the recent commits in sparky", "git", {"project": has("sparky"), "action": eq("log")}),
-    ("commit sparky with message 'add bench'", "git", {"project": has("sparky"), "action": eq("commit"), "message": has("add bench")}),
-    ("push sparky to github", "git", {"project": has("sparky"), "action": eq("push")}),
-    ("run the tests for sparky", "run_project", {"project": has("sparky"), "task": eq("test")}),
-    ("start the sparky dev server", "run_project", {"project": has("sparky"), "task": eq("dev")}),
-    ("build sparky", "run_project", {"project": has("sparky"), "task": eq("build")}),
+    (r"open E:\frosti in vs code", "open_vscode", {"path": has("frosti")}),
+    ("git status for frosti", "git", {"project": has("frosti"), "action": eq("status")}),
+    ("show me the recent commits in frosti", "git", {"project": has("frosti"), "action": eq("log")}),
+    ("commit frosti with message 'add bench'", "git", {"project": has("frosti"), "action": eq("commit"), "message": has("add bench")}),
+    ("push frosti to github", "git", {"project": has("frosti"), "action": eq("push")}),
+    ("run the tests for frosti", "run_project", {"project": has("frosti"), "task": eq("test")}),
+    ("start the frosti dev server", "run_project", {"project": has("frosti"), "task": eq("dev")}),
+    ("build frosti", "run_project", {"project": has("frosti"), "task": eq("build")}),
     ("list the files in my downloads folder using powershell", "run_powershell", {"command": has("download")}),
     ("what's my IP address on the laptop", "run_powershell", {"command": lambda v: isinstance(v, str) and ("ip" in v.lower())}),
     ("set a timer for 10 minutes for tea", "set_timer", {"minutes": eq(10), "label": has("tea")}),
     ("remind me in half an hour", "set_timer", {"minutes": eq(30)}),
     ("remember that I prefer dark themes", "remember", {"fact": has("dark")}),
-    ("remember my main project is SPARKY", "remember", {"fact": has("sparky")}),
+    ("remember my main project is FROSTI", "remember", {"fact": has("frosti")}),
     ("what did I tell you about my themes?", "recall", {"query": has("theme")}),
     ("kill chrome on the laptop", "kill_process", {"name": has("chrome")}),
     ("node is frozen, force close it", "kill_process", {"name": has("node")}),
+    ("close word on the laptop", "kill_process", {"name": has("word")}),
+    ("put on some Taylor Swift on my phone", "play_music", {"query": has("taylor swift"), "device": eq("phone")}),
+    ("play lofi beats on the laptop", "play_music", {"query": has("lofi"), "device": eq("laptop")}),
+    ("skip to the next song on my phone", "media_control", {"action": eq("next"), "device": eq("phone")}),
+    ("pause the music on the laptop", "media_control", {"action": eq("pause"), "device": eq("laptop")}),
     ("what's on my laptop screen right now?", "describe_screen", {"device": eq("laptop")}),
     ("read what's on the phone screen", "describe_screen", {"device": eq("phone")}),
-    ("hey sparky, how are you?", None, {}),
+    ("hey frosti, how are you?", None, {}),
     ("what is the capital of France?", None, {}),
     ("thanks, that's all", None, {}),
 ]
@@ -117,7 +125,7 @@ def check(case, msg):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
-    ap.add_argument("--llama", default="D:/sparky-tools/llama-cpu")
+    ap.add_argument("--llama", default="D:/frosti-tools/llama-cpu")
     ap.add_argument("--threads", type=int, default=4)
     ap.add_argument("--extra", default="", help="extra llama-server args")
     a = ap.parse_args()

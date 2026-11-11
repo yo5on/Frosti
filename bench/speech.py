@@ -1,9 +1,9 @@
 """Phase 0 benchmark: offline TTS, ASR and wake-word speed/accuracy with sherpa-onnx.
 
-TTS speaks a set of SPARKY commands; those clips (resampled to 16 kHz) are the ASR test set.
+TTS speaks a set of FROSTI commands; those clips (resampled to 16 kHz) are the ASR test set.
 shortcut: synthetic speech flatters ASR accuracy; re-run with real recordings from the J7 Pro mic in Phase 2.
 
-usage: .venv/Scripts/python.exe bench/speech.py [--models D:/sparky-models/speech] [--threads 4]
+usage: .venv/Scripts/python.exe bench/speech.py [--models D:/frosti-models/speech] [--threads 4]
 """
 import argparse, json, re, time
 from pathlib import Path
@@ -15,13 +15,13 @@ COMMANDS = [
     "Open Spotify on my phone.",
     "What is my laptop RAM usage?",
     "Set brightness to forty percent.",
-    "Run the tests for sparky.",
-    "Show me the recent commits in sparky.",
+    "Run the tests for frosti.",
+    "Show me the recent commits in frosti.",
     "Set a timer for ten minutes for tea.",
     "Remember that I prefer dark themes.",
     "Kill chrome on the laptop.",
     "What's on my laptop screen right now?",
-    "Good evening, Sparky. How are the systems looking?",
+    "Good evening, Frosti. How are the systems looking?",
 ]
 REPLY = ("Good evening. All systems are nominal. The laptop is at forty two percent memory, "
          "and your last build passed. Shall I open the project?")
@@ -152,9 +152,9 @@ def bench_kws(m, threads, tts, out):
     if not k:
         return {}
     kw_file = out / "keywords.txt"
-    toks = sherpa_onnx.text2token(["HEY SPARKY"], tokens=str(k / "tokens.txt"), tokens_type="bpe",
+    toks = sherpa_onnx.text2token(["HEY FROSTI"], tokens=str(k / "tokens.txt"), tokens_type="bpe",
                                   bpe_model=str(k / "bpe.model"))
-    kw_file.write_text(" ".join(toks[0]) + " @HEY_SPARKY\n", encoding="utf-8")
+    kw_file.write_text(" ".join(toks[0]) + " @HEY_FROSTI\n", encoding="utf-8")
     spot = sherpa_onnx.KeywordSpotter(
         tokens=str(k / "tokens.txt"), encoder=one(k, "encoder*int8.onnx"), decoder=one(k, "decoder*.onnx"),
         joiner=one(k, "joiner*int8.onnx"), keywords_file=str(kw_file), num_threads=1,
@@ -171,7 +171,7 @@ def bench_kws(m, threads, tts, out):
                 if spot.get_result(s): hit = True; spot.reset_stream(s)
         return hit, (time.time() - t) / (len(x) / 16000)
 
-    pos = ["Hey Sparky.", "Hey Sparky, open Spotify.", "Hey, Sparky!"]
+    pos = ["Hey Frosti.", "Hey Frosti, open Spotify.", "Hey, Frosti!"]
     neg = ["Hey Siri.", "The party was sparkly.", "Hey, how are you?", "Open Spotify on my phone."]
     p = [detect(t) for t in pos]; n = [detect(t) for t in neg]
     r = dict(detected=f"{sum(h for h, _ in p)}/{len(pos)}", false_alarms=f"{sum(h for h, _ in n)}/{len(neg)}",
@@ -181,7 +181,7 @@ def bench_kws(m, threads, tts, out):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--models", default="D:/sparky-models/speech")
+    ap.add_argument("--models", default="D:/frosti-models/speech")
     ap.add_argument("--threads", type=int, default=4)
     a = ap.parse_args()
     m, out = Path(a.models), Path(__file__).parent / "out"; out.mkdir(exist_ok=True)
