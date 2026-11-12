@@ -25,34 +25,11 @@ object Ui {
     val TEXT = Color.rgb(250, 249, 245)          // #FAF9F5 ivory
     val MUTED = Color.rgb(156, 154, 146)         // #9C9A92
     val DIM = Color.rgb(115, 114, 108)           // #73726C
-    val SLEEP = Color.BLACK                      // idle screen stays AMOLED black: pixels off, no burn-in
+    val SLEEP = BG                               // idle screen keeps the Claude charcoal so the near-black penguin still reads
     val THIN: Typeface = Typeface.create("sans-serif-thin", Typeface.NORMAL)
     val LIGHT: Typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
     val MEDIUM: Typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     val SERIF: Typeface = Typeface.SERIF
-}
-
-/** The spark: a starburst of 12 rounded rays of uneven length, drawn in one colour. */
-fun drawSpark(c: Canvas, p: Paint, cx: Float, cy: Float, r: Float, rot: Float, color: Int) {
-    p.color = color; p.style = Paint.Style.STROKE; p.strokeCap = Paint.Cap.ROUND; p.strokeWidth = r * 0.2f
-    for (i in 0 until 12) {
-        val a = rot + i * (Math.PI / 6).toFloat()
-        val len = r * floatArrayOf(1f, 0.72f, 0.9f, 0.66f, 0.95f, 0.75f)[i % 6]
-        c.drawLine(cx + kotlin.math.cos(a) * r * 0.12f, cy + kotlin.math.sin(a) * r * 0.12f,
-            cx + kotlin.math.cos(a) * len, cy + kotlin.math.sin(a) * len, p)
-    }
-}
-
-/** Header logo: the spark, slowly turning while FROSTI is busy. */
-class SparkView(ctx: Context) : View(ctx) {
-    var color = Ui.ACCENT; var spinning = false
-        set(v) { field = v; invalidate() }
-    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    private var rot = 0f
-    override fun onDraw(c: Canvas) {
-        drawSpark(c, p, width / 2f, height / 2f, minOf(width, height) / 2f * 0.9f, rot, color)
-        if (spinning) { rot += 0.06f; postInvalidateDelayed(33) }
-    }
 }
 
 fun Context.dp(v: Int) = (v * resources.displayMetrics.density).toInt()
@@ -104,7 +81,7 @@ class Dot(ctx: Context, var color: Int = Ui.DIM) : View(ctx) {
 }
 
 /** Thin meter: 3 dp track, accent fill that turns amber above 85 %. */
-class Meter(ctx: Context) : View(ctx) {
+class Meter(ctx: Context, private val warn: Boolean = true) : View(ctx) {
     var value = -1f  // 0..1, negative = unknown
         set(v) { field = v; invalidate() }
     private val track = Paint().apply { color = Ui.LINE }
@@ -112,21 +89,43 @@ class Meter(ctx: Context) : View(ctx) {
     override fun onDraw(c: Canvas) {
         c.drawRect(0f, 0f, width.toFloat(), height.toFloat(), track)
         if (value < 0) return
-        fill.color = if (value > 0.85f) Ui.AMBER else Ui.ACCENT
+        fill.color = if (warn && value > 0.85f) Ui.AMBER else Ui.ACCENT
         c.drawRect(0f, 0f, width * value.coerceIn(0f, 1f), height.toFloat(), fill)
     }
 }
 
-/** Line icons drawn on Canvas (no image assets): mic, grid, pulse, timer, send. */
-class Icon(ctx: Context, private val kind: String, var color: Int = Ui.ACCENT) : View(ctx) {
+/** Line icons drawn on Canvas (no image assets): mic, grid, pulse, timer, send, chat, list, sliders; media: play, pause, prev, next, shuffle, note. */
+class Icon(ctx: Context, kind: String, var color: Int = Ui.ACCENT) : View(ctx) {
+    var kind = kind
+        set(v) { if (v != field) { field = v; invalidate() } }
     private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
     private val o = android.graphics.RectF()
+    private val path = android.graphics.Path()
     override fun onDraw(c: Canvas) {
         val s = minOf(width, height).toFloat(); val x = (width - s) / 2; val y = (height - s) / 2
         fun X(f: Float) = x + f * s
         fun Y(f: Float) = y + f * s
+        fun tri(vararg f: Float) {  // filled, rounded triangle from three x,y fractions
+            path.reset(); path.moveTo(X(f[0]), Y(f[1])); path.lineTo(X(f[2]), Y(f[3])); path.lineTo(X(f[4]), Y(f[5])); path.close()
+            p.style = Paint.Style.FILL_AND_STROKE; c.drawPath(path, p); p.style = Paint.Style.STROKE
+        }
         p.color = color; p.strokeWidth = s * 0.075f
         when (kind) {
+            "play" -> tri(0.3f, 0.18f, 0.3f, 0.82f, 0.82f, 0.5f)
+            "pause" -> { p.strokeWidth = s * 0.16f; c.drawLine(X(0.34f), Y(0.22f), X(0.34f), Y(0.78f), p); c.drawLine(X(0.66f), Y(0.22f), X(0.66f), Y(0.78f), p) }
+            "prev" -> { tri(0.82f, 0.2f, 0.82f, 0.8f, 0.32f, 0.5f); p.strokeWidth = s * 0.1f; c.drawLine(X(0.2f), Y(0.2f), X(0.2f), Y(0.8f), p) }
+            "next" -> { tri(0.18f, 0.2f, 0.18f, 0.8f, 0.68f, 0.5f); p.strokeWidth = s * 0.1f; c.drawLine(X(0.8f), Y(0.2f), X(0.8f), Y(0.8f), p) }
+            "shuffle" -> {
+                c.drawLine(X(0.12f), Y(0.28f), X(0.36f), Y(0.28f), p); c.drawLine(X(0.36f), Y(0.28f), X(0.64f), Y(0.72f), p)
+                c.drawLine(X(0.64f), Y(0.72f), X(0.86f), Y(0.72f), p)
+                c.drawLine(X(0.12f), Y(0.72f), X(0.36f), Y(0.72f), p); c.drawLine(X(0.36f), Y(0.72f), X(0.64f), Y(0.28f), p)
+                c.drawLine(X(0.64f), Y(0.28f), X(0.86f), Y(0.28f), p)
+                for (yy in floatArrayOf(0.28f, 0.72f)) { c.drawLine(X(0.74f), Y(yy - 0.12f), X(0.86f), Y(yy), p); c.drawLine(X(0.74f), Y(yy + 0.12f), X(0.86f), Y(yy), p) }
+            }
+            "note" -> {
+                c.drawCircle(X(0.34f), Y(0.74f), s * 0.13f, p); c.drawLine(X(0.47f), Y(0.74f), X(0.47f), Y(0.16f), p)
+                c.drawLine(X(0.47f), Y(0.16f), X(0.78f), Y(0.26f), p)
+            }
             "mic" -> {
                 o.set(X(0.38f), Y(0.14f), X(0.62f), Y(0.6f)); c.drawRoundRect(o, s * 0.12f, s * 0.12f, p)
                 o.set(X(0.26f), Y(0.3f), X(0.74f), Y(0.72f)); c.drawArc(o, 0f, 180f, false, p)
@@ -143,6 +142,22 @@ class Icon(ctx: Context, private val kind: String, var color: Int = Ui.ACCENT) :
             "timer" -> {
                 c.drawCircle(X(0.5f), Y(0.55f), s * 0.32f, p)
                 c.drawLine(X(0.5f), Y(0.55f), X(0.5f), Y(0.38f), p); c.drawLine(X(0.42f), Y(0.12f), X(0.58f), Y(0.12f), p)
+            }
+            "chat" -> {  // speech bubble with a tail at the bottom left
+                path.reset(); path.moveTo(X(0.16f), Y(0.2f)); path.lineTo(X(0.84f), Y(0.2f)); path.lineTo(X(0.84f), Y(0.66f))
+                path.lineTo(X(0.42f), Y(0.66f)); path.lineTo(X(0.16f), Y(0.84f)); path.close(); c.drawPath(path, p)
+            }
+            "list" -> for (yy in floatArrayOf(0.26f, 0.5f, 0.74f)) {
+                c.drawLine(X(0.36f), Y(yy), X(0.86f), Y(yy), p); c.drawLine(X(0.14f), Y(yy), X(0.17f), Y(yy), p)
+            }
+            "sliders" -> {
+                c.drawLine(X(0.14f), Y(0.3f), X(0.86f), Y(0.3f), p); c.drawLine(X(0.14f), Y(0.7f), X(0.86f), Y(0.7f), p)
+                c.drawLine(X(0.62f), Y(0.18f), X(0.62f), Y(0.42f), p); c.drawLine(X(0.38f), Y(0.58f), X(0.38f), Y(0.82f), p)
+            }
+            "box" -> { o.set(X(0.16f), Y(0.16f), X(0.84f), Y(0.84f)); c.drawRoundRect(o, s * 0.12f, s * 0.12f, p) }
+            "check" -> {  // rounded box with a tick
+                o.set(X(0.16f), Y(0.16f), X(0.84f), Y(0.84f)); c.drawRoundRect(o, s * 0.12f, s * 0.12f, p)
+                c.drawLine(X(0.32f), Y(0.52f), X(0.45f), Y(0.65f), p); c.drawLine(X(0.45f), Y(0.65f), X(0.7f), Y(0.36f), p)
             }
             "send" -> {
                 c.drawLine(X(0.2f), Y(0.5f), X(0.8f), Y(0.5f), p)

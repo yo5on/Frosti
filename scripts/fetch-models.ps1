@@ -6,7 +6,6 @@ param([string]$Root = 'D:\frosti-models')
 $speech = Join-Path $Root 'speech'
 New-Item -ItemType Directory -Force $Root, $speech | Out-Null
 $gh = 'https://github.com/k2-fsa/sherpa-onnx/releases/download'
-$hf = 'https://huggingface.co'
 
 # url, destination dir, extract?
 $queue = @(
@@ -15,10 +14,9 @@ $queue = @(
   @("$gh/tts-models/vits-piper-en_GB-alan-medium.tar.bz2", $speech, $true),
   @("$gh/asr-models/sherpa-onnx-streaming-zipformer-en-20M-2023-02-17-mobile.tar.bz2", $speech, $true),
   @("$gh/asr-models/sherpa-onnx-moonshine-base-en-quantized-2026-02-27.tar.bz2", $speech, $true),
-  @("$hf/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf", $Root, $false),
   @("$gh/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2", $speech, $true),
-  @("$hf/ggml-org/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_0.gguf", $Root, $false),
   @("$gh/tts-models/vits-piper-en_GB-northern_english_male-medium.tar.bz2", $speech, $true),
+  @("$gh/tts-models/vits-piper-en_GB-jenny_dioco-medium.tar.bz2", $speech, $true),
   @("$gh/tts-models/kokoro-en-v0_19.tar.bz2", $speech, $true)
 )
 

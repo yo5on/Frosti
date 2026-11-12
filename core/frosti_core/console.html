@@ -23,29 +23,22 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--dim);vertical-align:middle}
 .dot.on{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}.dot.warn{background:var(--amber)}
 
-.app{display:grid;grid-template-columns:232px 1fr;height:100%}
-nav.rail{display:flex;flex-direction:column;padding:28px 18px 22px;border-right:1px solid var(--line);background:var(--rail)}
-.brand{display:flex;align-items:center;gap:12px;padding:0 10px 30px}
-.brand canvas{width:34px;height:34px}
-.brand b{font:400 22px var(--serif)}
-.newchat{display:flex;align-items:center;gap:12px;padding:9px 12px;margin-bottom:10px;border-radius:12px;font:400 14px var(--thin);color:var(--text)}
-.newchat:hover{background:rgba(250,249,245,.04)}
-.newchat span{width:24px;height:24px;border-radius:50%;background:var(--cyan);display:grid;place-items:center;font:500 17px/1 var(--thin);color:var(--bg)}
-.recents{margin-top:24px;min-height:0;overflow:auto}
-.recents .label{padding:0 12px 8px;letter-spacing:.06em;text-transform:none;font:400 12px var(--thin);color:var(--dim)}
-.recents button{display:block;width:100%;text-align:left;padding:7px 12px;border-radius:10px;font:300 13.5px var(--thin);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.recents button:hover{background:rgba(250,249,245,.04);color:var(--text)}
-.nav{display:flex;flex-direction:column;gap:2px}
-.nav button{display:flex;align-items:center;gap:14px;padding:9px 12px;border-radius:12px;text-align:left;
-  font:400 14px var(--thin);color:var(--muted);transition:color .15s,background .15s}
-.nav [data-nav=home]{display:none}
+/* layout: slim icon rail beside the screen */
+.app{display:grid;grid-template-columns:84px 1fr;height:100%}
+nav.rail{display:flex;flex-direction:column;align-items:center;padding:16px 8px 18px;border-right:1px solid var(--line);background:var(--rail)}
+.brand{padding:0 0 16px}
+.brand canvas{width:30px;height:30px;display:block}
+.newchat{width:40px;height:40px;border-radius:50%;background:var(--cyan);color:var(--bg);font:500 24px/1 var(--thin);display:grid;place-items:center;margin-bottom:18px;transition:background .15s}
+.newchat:hover{background:#c6613f}
+.nav{display:flex;flex-direction:column;gap:8px;width:100%}
+.nav button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:11px 0 10px;border-radius:12px;
+  font:400 11px var(--thin);color:var(--muted);transition:color .15s,background .15s}
+.nav svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .nav button:hover{color:var(--text);background:rgba(250,249,245,.04)}
 .nav button.on{color:var(--text);background:var(--surface)}
-.nav button i{width:3px;height:14px;border-radius:2px;background:transparent}
-.nav button.on i{background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
-.nav kbd{margin-left:auto;font:10px var(--mono);color:var(--dim)}
-.rail .foot{margin-top:auto;padding:0 12px;display:grid;gap:10px}
-.rail .foot .label{font:400 12px var(--thin);letter-spacing:0;text-transform:none}
+.nav button.on svg{stroke:var(--cyan)}
+.rail .foot{margin-top:auto;display:flex;flex-direction:column;gap:12px;align-items:center}
+.rail .foot .label{display:flex;flex-direction:column;align-items:center;gap:6px;font:400 10.5px var(--thin);letter-spacing:0;text-transform:none}
 main{position:relative;overflow:hidden}
 .screen{position:absolute;inset:0;overflow:auto;padding:36px 48px 40px;display:none}
 .screen.on{display:block;animation:rise .18s cubic-bezier(.2,.8,.2,1)}
@@ -54,11 +47,6 @@ h1{font:400 40px/1.1 var(--serif);letter-spacing:-.01em}
 .sub{color:var(--muted);margin:8px 0 6px}
 .section{margin:34px 0 10px;color:var(--cyan-dim)}
 
-/* home: the Claude "new chat" screen */
-.start{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;max-width:720px;margin:0 auto}
-.start canvas{width:min(300px,70%);height:auto;aspect-ratio:32/14;cursor:pointer}
-.start .greet{font:400 40px/1.15 var(--serif);margin-top:6px}
-.start .input{width:100%;margin-top:28px}
 .clock{font:100 96px/1 var(--thin);letter-spacing:-.02em}
 .state{font:500 12px var(--mono);letter-spacing:.3em;color:var(--cyan)}
 .hint{color:var(--muted);margin-top:8px}
@@ -83,22 +71,71 @@ button.row:hover{background:var(--surface)}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px 56px}
 
 /* talk */
-.talk{display:grid;grid-template-rows:auto 1fr auto;height:100%;max-width:780px;margin:0 auto}
+/* chat: one screen. Empty, it is the "new chat" page (penguin, greeting, box, starters, centred);
+   once you talk, the penguin moves into a header above the conversation. */
+.screen[data-s=talk]{padding:20px 48px 24px}
+.talk{display:flex;flex-direction:column;height:100%;max-width:780px;margin:0 auto}
 .talkhead{display:flex;align-items:center;gap:22px}
 .talkhead canvas{width:224px;height:98px;cursor:pointer}
 .ind{display:flex;gap:18px;align-items:center;margin-top:14px}
-.log{overflow:auto;padding:18px 0;scroll-behavior:smooth;display:flex;flex-direction:column}
+.log{flex:1;min-height:0;overflow:auto;padding:18px 0;scroll-behavior:smooth;display:flex;flex-direction:column}
+.talk .greet,.talk .quick,.talk .ehint{display:none}
+.talk.empty .talkhead{flex-direction:column;margin-top:auto}
+.talk.empty .talkhead canvas{width:min(320px,80%);height:auto;aspect-ratio:448/196}
+.talk.empty .talkhead>div,.talk.empty .ehint{display:none}
+.talk.empty .ehint{display:block;text-align:center}
+.talk.empty .greet{display:block;text-align:center;font:400 40px/1.15 var(--serif);margin-top:18px}
+.talk.empty .log{display:none}
+.talk.empty .input{margin-top:26px}
+.talk.empty .quick{display:flex;margin-bottom:auto}
 .msg{padding:10px 0;animation:rise .2s ease-out}
 .msg .who{margin-bottom:5px}
 .msg .body{font:400 18px/1.5 var(--serif);white-space:pre-wrap}.msg.you{align-self:flex-end;max-width:80%}.msg.you .body{color:var(--text);font:300 16px var(--thin);background:var(--surface);padding:10px 16px;border-radius:16px}
 .msg .det{font:11px/1.5 var(--mono);color:var(--dim);margin-top:6px;white-space:pre-wrap}
-.input{display:flex;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:0 6px 0 22px;box-shadow:0 4px 20px rgba(0,0,0,.18);transition:border-color .15s}
+.media{display:flex;gap:14px;align-items:center;margin-top:10px;padding:10px;max-width:420px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.media img,.media .noart{width:64px;height:64px;border-radius:8px;flex:none;object-fit:cover;background:var(--line)}
+.media .t{min-width:0}.media .tt{font:400 16px/1.3 var(--serif);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.media .ar{font:300 13px/1.4 var(--thin);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tracks .media{margin-top:6px;padding:6px 10px}.tracks .media img,.tracks .media .noart{width:44px;height:44px}.tracks .media .t{flex:1}
+.tracks .play{flex:none;width:36px;height:36px;border-radius:50%;border:0;background:var(--cyan);display:grid;place-items:center;cursor:pointer}
+.tracks .play svg{width:16px;height:16px;fill:var(--bg)}
+.input{display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:0 6px;box-shadow:0 4px 20px rgba(0,0,0,.18);transition:border-color .15s}
 .input:focus-within{border-color:var(--cyan-dim)}.input input:focus-visible{outline:0}
 .input input{flex:1;background:none;border:0;outline:0;color:var(--text);font:300 16px var(--thin);height:52px}
 .input input::placeholder{color:var(--dim)}
-.send{width:44px;height:44px;border-radius:50%;display:grid;place-items:center}.send{background:var(--cyan)}.send:hover{background:#c6613f}
+.plus{width:40px;height:40px;border-radius:10px;font:200 28px/1 var(--thin);color:var(--text);display:grid;place-items:center}.plus:hover{background:rgba(250,249,245,.06)}
+.send{width:40px;height:40px;border-radius:10px;display:grid;place-items:center}.send{background:var(--cyan)}.send:hover{background:#c6613f}
 .send svg{width:20px;height:20px;stroke:var(--text);fill:none;stroke-width:1.8;stroke-linecap:round}
 
+/* music */
+.player{position:relative;display:flex;gap:44px;align-items:center;max-width:980px;margin-top:28px;padding:30px;border:1px solid var(--line);border-radius:22px;overflow:hidden;background:var(--surface)}
+.player>*{position:relative}.player .bg{position:absolute;inset:-40px;background:center/cover no-repeat;filter:blur(50px) saturate(1.3);opacity:.28;pointer-events:none}
+.player .art{width:280px;height:280px;border-radius:14px;background:var(--line);object-fit:cover;flex:none;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.player .t{flex:1;min-width:0}
+.player .tt{font:400 38px/1.15 var(--serif);margin-top:10px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.player .ar{font-size:19px;color:var(--muted);margin-top:8px}
+.player .meter{margin-top:30px;height:4px}
+.player .times{display:flex;justify-content:space-between;margin-top:8px}
+.ctrls{display:flex;gap:14px;align-items:center;margin-top:22px}
+.ctrls button{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;color:var(--text)}
+.ctrls button:hover{background:var(--surface)}
+.ctrls button.play{width:64px;height:64px;background:var(--cyan)}.ctrls button.play:hover{background:#c6613f}
+.ctrls svg{width:24px;height:24px;fill:currentColor}
+.ctrls .on{color:var(--cyan)}
+.qlist{display:grid;gap:2px;margin-top:10px}
+/* performance tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;max-width:980px;margin-top:22px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px 20px}
+.tile .big{font:200 44px/1.1 var(--thin);margin-top:12px;white-space:nowrap}.tile .big.warn{color:var(--amber)}
+.tile .sub{color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .meter{margin-top:16px;height:4px}
+.procbar{height:2px;background:var(--line);margin:0 4px 6px}.procbar i{display:block;height:100%;background:var(--cyan)}
+/* idle: now playing card, a click opens Music */
+.idlesong{display:none;align-items:center;gap:14px;margin-top:22px;padding:10px 20px 10px 10px;background:var(--surface);border:1px solid var(--line);border-radius:16px;text-align:left;cursor:pointer;max-width:min(520px,86vw)}
+.idlesong.on{display:flex}.idlesong img{width:64px;height:64px;border-radius:10px;object-fit:cover;background:var(--line);flex:none}
+.idlesong .tt{font:400 19px/1.3 var(--serif);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.idlesong .ar{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.idlesong span{min-width:0}
 /* memory chips */
 .chips{display:flex;gap:6px;margin:14px 0 4px}
 .chips button{font:500 10px var(--mono);letter-spacing:.15em;text-transform:uppercase;color:var(--muted);padding:9px 15px;border-radius:999px;border:1px solid transparent}
@@ -132,13 +169,13 @@ button:focus-visible,input:focus-visible{outline:1px solid var(--cyan-dim);outli
 .dialog .btns button:hover{background:var(--surface)}
 
 @media (max-width:860px){
+  .player{flex-direction:column;align-items:stretch;gap:22px;padding:22px}.player .art{width:min(100%,300px);height:auto;aspect-ratio:1;align-self:center}
   .app{grid-template-columns:1fr;grid-template-rows:1fr auto}
   nav.rail{flex-direction:row;padding:6px 8px 10px;border-right:0;border-top:1px solid var(--line);order:2}
-  .brand,.newchat,.recents,.rail .foot,.nav kbd,.nav button i{display:none}
-  .nav [data-nav=home]{display:flex}
-  .nav{flex-direction:row;width:100%}.nav button{flex:1;justify-content:center;padding:12px 2px;font-size:9.5px;letter-spacing:.08em}
-  .screen{padding:24px 16px 28px}
-  .start .greet{font-size:30px}
+  .rail .foot{display:none}
+  .nav{flex-direction:row}.nav button{flex:1;padding:8px 2px;font-size:10px}
+  .screen,.screen[data-s=talk]{padding:24px 16px 20px}
+  .talk.empty .greet{font-size:30px}
   .clock{font-size:64px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -147,40 +184,18 @@ button:focus-visible,input:focus-visible{outline:1px solid var(--cyan-dim);outli
 <body>
 <div class="app">
   <nav class="rail">
-    <div class="brand"><canvas id="mini" width="68" height="68"></canvas><b>Frosti</b></div>
-    <button class="newchat" id="newChat"><span>+</span>New chat</button>
     <div class="nav" id="nav"></div>
-    <div class="recents"><div class="label">Recents</div><div id="recents"></div></div>
     <div class="foot">
-      <div class="label"><span class="dot" id="linkDot"></span>&nbsp; <span id="linkText">Offline</span></div>
-      <div class="label"><span class="dot" id="phoneDot"></span>&nbsp; <span id="phoneText">Phone —</span></div>
+      <div class="label" id="linkFoot"><span class="dot" id="linkDot"></span><span id="linkText">Offline</span></div>
+      <div class="label" id="phoneFoot"><span class="dot" id="phoneDot"></span><span id="phoneText">Phone</span></div>
     </div>
   </nav>
   <main>
-    <!-- HOME -->
-    <section class="screen" data-s="home">
-      <div class="start">
-        <canvas id="homeCore" width="1120" height="490" title="Poke Frosti"></canvas>
-        <div class="greet" id="greet"></div>
-        <div class="hint" data-hint></div>
-        <form class="input" id="homeForm" autocomplete="off">
-          <input id="homeCmd" placeholder="How can I help you today?" aria-label="Command">
-          <button class="send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-        </form>
-        <div class="quick">
-          <button data-cmd="what's the laptop cpu">Laptop status</button>
-          <button data-cmd="phone battery">Phone battery</button>
-          <button data-cmd="set a timer for 25 minutes for focus">Focus 25 min</button>
-          <button data-go="tools">All tools</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- TALK -->
+    <!-- CHAT (empty = the "new chat" page) -->
     <section class="screen" data-s="talk">
-      <div class="talk">
+      <div class="talk empty" id="talk">
         <div class="talkhead">
-          <canvas id="talkCore" width="448" height="196"></canvas>
+          <canvas id="talkCore" width="896" height="392" title="Poke Frosti"></canvas>
           <div>
             <div class="state" data-state style="font-size:14px"></div>
             <div class="hint" data-hint></div>
@@ -191,51 +206,59 @@ button:focus-visible,input:focus-visible{outline:1px solid var(--cyan-dim);outli
             </div>
           </div>
         </div>
+        <div class="greet" id="greet"></div>
+        <div class="hint ehint" data-hint></div>
         <div class="log" id="log"></div>
         <form class="input" id="form" autocomplete="off">
-          <input id="cmd" placeholder="Reply to Frosti…" aria-label="Command">
+          <button type="button" class="plus" id="plusBtn" title="Quick actions" aria-label="Quick actions">+</button>
+          <input id="cmd" placeholder="Ask Frosti anything" aria-label="Command">
           <button class="send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         </form>
+        <div class="quick" id="starters"></div>
       </div>
     </section>
 
-    <!-- SYSTEM -->
-    <section class="screen" data-s="system">
-      <h1>System</h1><div class="sub">Laptop core and phone, live. History covers the last two minutes.</div>
-      <div class="grid">
-        <div><div class="label section">Laptop core</div><div id="sysLaptop"></div></div>
-        <div><div class="label section">Phone</div><div id="sysPhone"></div></div>
-        <div><div class="label section">Intelligence</div><div id="sysAI"></div></div>
-        <div><div class="label section">Services</div><div id="sysSvc"></div></div>
+    <!-- MUSIC: whatever the laptop plays -->
+    <section class="screen" data-s="music">
+      <h1>Music</h1><div class="sub">Whatever the laptop is playing.</div>
+      <div class="player"><div class="bg" id="mBg"></div>
+        <img class="art" id="mArt" alt="">
+        <div class="t">
+          <div class="label cyan" id="mSrc"></div>
+          <div class="tt" id="mTitle"></div>
+          <div class="ar" id="mArtist"></div>
+          <div class="meter"><i id="mBar"></i></div>
+          <div class="times label"><span id="mPos"></span><span id="mLeft"></span></div>
+          <div class="ctrls">
+            <button data-media="shuffle" id="mShuf" title="Shuffle"><svg viewBox="0 0 24 24"><path d="M3 7h4l9 10h3v-2l3 3-3 3v-2h-4L6 9H3zm0 10h4l2-2.3 1.4 1.6L8 19H3zm13-8h3V7l3 3-3 3v-2h-3l-2 2.2-1.3-1.5z"/></svg></button>
+            <button data-media="previous" title="Previous"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zm3 7 10-7v14z"/></svg></button>
+            <button data-media="toggle" class="play" title="Play / pause"><svg viewBox="0 0 24 24" id="mPlay"><path d="M7 4l13 8-13 8z"/></svg></button>
+            <button data-media="next" title="Next"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM5 5l10 7-10 7z"/></svg></button>
+            <button data-ask="Song, artist or album" data-tpl="search {} on spotify" title="Search Spotify"><svg viewBox="0 0 24 24"><path d="M10 3a7 7 0 0 1 5.6 11.2l5.1 5.1-1.4 1.4-5.1-5.1A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg></button>
+          </div>
+        </div>
       </div>
     </section>
 
-    <!-- TOOLS -->
-    <section class="screen" data-s="tools">
-      <h1>Tools</h1><div class="sub">Everything FROSTI can do. Click to run, or just ask.</div>
-      <div class="grid" id="tools"></div>
+    <!-- PROCESSES: what the laptop is busy with -->
+    <section class="screen" data-s="processes">
+      <h1>Processes</h1><div class="sub">Busiest programs on the laptop. Close one and FROSTI asks first.</div>
+      <div id="procs" style="max-width:860px;margin-top:18px"></div>
     </section>
 
-    <!-- MEMORY -->
-    <section class="screen" data-s="memory">
-      <h1>Memory</h1><div class="sub">What FROSTI knows, has done, and is waiting on.</div>
-      <div class="chips" id="chips"></div>
-      <div id="mem" style="max-width:860px"></div>
-    </section>
-
-    <!-- ACTIVITY -->
-    <section class="screen" data-s="activity">
-      <h1>Activity</h1><div class="sub" id="actSum">Every action FROSTI took, from the append-only audit log. Updates live.</div>
-      <div class="chips" id="actChips"></div>
-      <div id="act" style="max-width:860px"></div>
+    <!-- PERFORMANCE: the laptop only -->
+    <section class="screen" data-s="performance">
+      <h1>Performance</h1><div class="sub">The laptop, live.</div>
+      <div class="tiles" id="perf"></div>
     </section>
 
     <!-- SETUP -->
     <section class="screen" data-s="setup">
-      <h1>Setup</h1><div class="sub">Model, voice, pairing, privacy and look.</div>
+      <h1>Setup</h1><div class="sub">Status and look.</div>
       <div class="grid" id="setup"></div>
     </section>
   </main>
+
 </div>
 
 <div class="overlay" id="boot"><div class="box">
@@ -248,7 +271,8 @@ button:focus-visible,input:focus-visible{outline:1px solid var(--cyan-dim);outli
 <div class="overlay" id="idle"><div class="box">
   <canvas id="idleCore" width="512" height="224"></canvas>
   <div class="clock" data-clock></div>
-  <div class="date" id="idleDate"></div>
+  <div class="date" data-date></div>
+  <button class="idlesong" id="idleSong" title="Open Music"><img id="idleArt" alt=""><span><div class="label cyan">Now playing</div><div class="tt" id="idleTitle"></div><div class="ar" id="idleArtist"></div></span></button>
   <div class="label dim" id="idleInfo" style="margin-top:30px"></div>
 </div></div>
 
@@ -275,8 +299,7 @@ function level(state, t) { return state === "speaking" ? .35 + .3 * Math.abs(Mat
 const reduceMotion = () => pref("reduce", false) || matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 let ctl = null;  // one penguin, drawn on whichever of these canvases is visible
-const views = ["homeCore", "talkCore", "bootCore", "idleCore"].map(id => { const c = $("#" + id); return {c, g: c.getContext("2d")}; });
-const mini = {c: $("#mini"), g: $("#mini").getContext("2d"), spin: 0};
+const views = ["talkCore", "bootCore", "idleCore"].map(id => { const c = $("#" + id); return {c, g: c.getContext("2d")}; });
 fetch("/frosti_anims.json").then(r => r.json()).then(spec => {
   ctl = new Frosti.Controller(spec, {walkIn: pref("bootAnim", true) && !reduceMotion()});
   if (!S.linked) ctl.setLink(false, S.state === "error");
@@ -291,19 +314,16 @@ function frame(ms) {
     lastDraw = ms;
     const lv = busy && S.state !== "thinking" ? level(S.state, t) : 0;
     if (ctl) for (const v of views) if (v.c.offsetParent !== null) ctl.draw(v.g, v.c.width, v.c.height, {level: lv, time: t});
-    const m = mini.c; mini.g.clearRect(0, 0, m.width, m.height);
-    if (busy && !reduceMotion()) mini.spin += .05;
-    spark(mini.g, m.width / 2, m.height / 2, m.width * .42, mini.spin, S.state === "offline" ? "#73726c" : S.state === "error" ? "#e8b931" : "#d97757");
   }
   requestAnimationFrame(frame);
 }
 
 // ---------------- state + socket ----------------
-const S = {linked: false, state: "offline", stats: null, memory: null, hist: {cpu: [], ram: [], rx: [], tx: []}, lastNet: null, screen: "home", memTab: "Recent"};
+const S = {linked: false, state: "offline", stats: null, screen: "talk", lastNet: null};
 let ws, pending = 0;
 function connect() {
   ws = new WebSocket(`ws://${location.host}/`);
-  ws.onopen = () => { ws.send(JSON.stringify({type: "hello", token: TOKEN, client: "desk"})); S.linked = true; ctl?.setLink(true); setState("idle"); send({type: "memory"}); send({type: "stats"}); };
+  ws.onopen = () => { ws.send(JSON.stringify({type: "hello", token: TOKEN, client: "desk"})); S.linked = true; ctl?.setLink(true); setState("idle"); send({type: "stats"}); };
   ws.onmessage = e => { if (typeof e.data === "string") onEvent(JSON.parse(e.data)); };
   ws.onclose = e => { S.linked = false; ctl?.setLink(false, e.code === 4001); setState(e.code === 4001 ? "error" : "offline"); setTimeout(connect, 3000); };
 }
@@ -322,17 +342,15 @@ function onEvent(m) {
     case "heard": if (m.text) addMsg("you", ph ? "You · via phone" : "You · voice", `“${m.text}”`); break;
     case "reply":
       addMsg("frosti", ph ? "Frosti · on phone" : "Frosti", m.text, m.detail);
+      if (m.media) m.media.tracks ? trackList(m.media.tracks) : mediaCard(m.media);
       $("#meta").textContent = `${m.path} path · ${m.seconds} s`;
       ctl?.reply({tool: m.tool, detail: m.detail, seconds: m.seconds, spoken: ph});
-      if (!ph) send({type: "memory"});
-      if (S.screen === "activity") send({type: "log"});
       break;
-    case "log": S.log = m.entries; renderActivity(); break;
+    case "now_playing": liveMedia(m.media); break;
     case "activity": ctl?.activity(m.name, m.args || {}); break;
     case "notify": ctl?.notify(); addMsg("notice", "Frosti · notice", m.text); break;
     case "confirm": confirmAction(m); break;
     case "stats": onStats(m); ctl?.stats({cpu: m.cpu, battery: m.phone_stats?.battery, charging: m.phone_stats?.charging}); break;
-    case "memory": S.memory = m; renderMemory(); renderTools(); break;
   }
 }
 
@@ -350,22 +368,26 @@ function setState(s) {
   $$("[data-state]").forEach(e => { e.textContent = l.toUpperCase(); e.style.color = S.state === "error" ? "var(--amber)" : S.state === "offline" ? "var(--muted)" : "var(--cyan)"; });
   $$("[data-hint]").forEach(e => e.textContent = h);
   $("#linkDot").className = "dot " + (S.linked ? "on" : S.state === "error" ? "warn" : "");
-  $("#linkText").textContent = S.linked ? "Core linked" : S.state === "error" ? "Token rejected" : "Core offline";
+  $("#linkText").textContent = S.linked ? "Core" : S.state === "error" ? "Token" : "Offline";
+  $("#linkFoot").title = S.linked ? "Core linked" : S.state === "error" ? "Token rejected" : "Core offline";
   $("#tLink").className = $("#linkDot").className;
   if (["listening", "speaking"].includes(S.state) || S.state === "error") wake();
 }
 
 // ---------------- navigation ----------------
-const SCREENS = [["home", "Home"], ["talk", "Chat"], ["system", "System"], ["tools", "Tools"], ["memory", "Memory"], ["activity", "Activity"], ["setup", "Setup"]];
-$("#nav").innerHTML = SCREENS.map(([k, n], i) => `<button data-nav="${k}"><i></i>${n}<kbd>${i + 1}</kbd></button>`).join("");
+const SCREENS = [["talk", "Chat", "M4 5h16v11H10l-6 4z"], ["music", "Music", "M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"],
+  ["processes", "Processes", "M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"], ["performance", "Performance", "M3 12h4l3-7 4 14 3-7h4"],
+  ["setup", "Setup", "M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4"]];
+$("#nav").innerHTML = SCREENS.map(([k, n, d], i) => `<button data-nav="${k}" title="${n} (${i + 1})"><svg viewBox="0 0 24 24"><path d="${d}"/></svg>${n}</button>`).join("");
 function show(k) {
+  if (!SCREENS.some(s => s[0] === k)) k = "talk";  // "home" from older saved prefs is now the empty chat
   S.screen = k;
   $$(".screen").forEach(e => e.classList.toggle("on", e.dataset.s === k));
   $$("[data-nav]").forEach(e => e.classList.toggle("on", e.dataset.nav === k));
-  if (k === "memory") send({type: "memory"});
-  if (k === "activity") { renderActivity(); send({type: "log"}); }
+  if (k === "music") renderMusic();
+  if (k === "processes" || k === "performance") { send({type: "stats"}); renderStats(); }
   if (k === "setup") renderSetup();
-  if (k === "talk" || k === "home") setTimeout(() => $(k === "talk" ? "#cmd" : "#homeCmd").focus(), 50);
+  if (k === "talk") setTimeout(() => $("#cmd").focus(), 50);
   setState(S.state);  // the hint depends on the screen
   setPref("screen", k);
 }
@@ -381,17 +403,35 @@ document.addEventListener("keydown", e => {
   if (e.key >= "1" && e.key <= String(SCREENS.length)) show(SCREENS[+e.key - 1][0]);
   if (e.key === "/") { e.preventDefault(); show("talk"); }
 });
-$("#homeCore").onclick = () => ctl?.poke();
-$("#newChat").onclick = () => { $("#log").innerHTML = ""; send({type: "new"}); show("home"); };  // the Core forgets the follow-up context too
-$("#homeForm").onsubmit = e => { e.preventDefault(); const t = $("#homeCmd").value.trim(); if (t) { command(t); $("#homeCmd").value = ""; } };
-$("#recents").onclick = e => { const b = e.target.closest("button"); if (b) { show("talk"); $("#cmd").value = b.textContent; } };
-function renderRecents() { $("#recents").innerHTML = pref("recent", []).map(t => `<button title="${esc(t)}">${esc(t)}</button>`).join(""); }
+function newChat() { $("#log").innerHTML = ""; $("#talk").classList.add("empty"); send({type: "new"}); show("talk"); }  // the Core forgets the follow-up context too
+// starters on the empty chat: a few fixed ones, then your last asks (these fill the box instead of sending)
+const STARTERS = [["Laptop status", "what's the laptop cpu"], ["Play music", "play some music on spotify"], ["Focus 25 min", "set a timer for 25 minutes for focus"]];
+function renderRecents() {
+  $("#starters").innerHTML = STARTERS.map(([n, c]) => `<button data-cmd="${esc(c)}">${esc(n)}</button>`).join("") +
+    pref("recent", []).filter(t => !STARTERS.some(s => s[1] === t.toLowerCase())).slice(0, 3).map(t => `<button data-fill="${esc(t)}" title="${esc(t)}">↺ ${esc(t.length > 28 ? t.slice(0, 27) + "…" : t)}</button>`).join("");
+}
+$("#starters").addEventListener("click", e => { const b = e.target.closest("[data-fill]"); if (b) { $("#cmd").value = b.dataset.fill; $("#cmd").focus(); } });
 $("#talkCore").onclick = () => ctl?.poke();
-for (const id of ["#homeCore", "#talkCore"]) {  // the penguin's eyes follow the pointer while it idles
-  const c = $(id), r = () => c.getBoundingClientRect();
+{  // the penguin's eyes follow the pointer while it idles
+  const c = $("#talkCore"), r = () => c.getBoundingClientRect();
   c.onmousemove = e => ctl?.hover(Math.max(-1, Math.min(1, (e.clientX - r().left - r().width / 2) / (r().width / 4))));
   c.onmouseleave = () => ctl?.hover(null);
 }
+// + in the input bar: the few tool shortcuts worth a click (what the old Tools screen did)
+const QUICK = [["New chat", "new"], ["Open on laptop…", "ask", "App name", "open {} on the laptop"], ["Open on phone…", "ask", "App name", "open {} on my phone"],
+  ["Timer…", "ask", "Minutes", "set a timer for {} minutes"], ["Focus 25 min", "cmd", "set a timer for 25 minutes for focus"],
+  ["Mute phone", "cmd", "mute the phone"], ["PowerShell…", "ask", "Command", "use powershell to run: {}"]];
+$("#plusBtn").onclick = () => {
+  const d = $("#dialog"); d.className = "dialog";
+  d.innerHTML = `<div class="label cyan" style="font-size:12px">Quick actions</div><div class="qlist">` + QUICK.map(([n, kind, a, b]) => kind === "new" ? `<button class="row" id="qNew"><span class="t">${esc(n)}</span></button>` : kind === "ask"
+    ? `<button class="row" data-ask="${esc(a)}" data-tpl="${esc(b)}"><span class="t">${esc(n)}</span></button>`
+    : `<button class="row" data-cmd="${esc(a)}"><span class="t">${esc(n)}</span></button>`).join("") + `</div><div class="btns"><button id="dlgNo">Cancel</button></div>`;
+  $("#modal").classList.add("on"); closeModal.no = null;
+  $("#dlgNo").onclick = closeModal;
+  $("#qNew").onclick = () => { closeModal(); newChat(); };
+  d.onkeydown = null;
+  d.onclick = e => { if (e.target.closest("[data-cmd]")) closeModal(); };  // runs before the document handler sends it
+};
 $("#form").onsubmit = e => { e.preventDefault(); const t = $("#cmd").value.trim(); if (t) { command(t, false); $("#cmd").value = ""; } };
 
 // ---------------- talk log ----------------
@@ -400,145 +440,101 @@ function addMsg(kind, who, text, detail = "") {
   d.innerHTML = (who === "You" || who === "Frosti" ? "" : `<div class="who label ${kind === "frosti" ? "cyan" : kind === "notice" ? "amber" : "dim"}">${esc(who)}</div>`) + `<div class="body">${esc(text)}</div>` +
     (detail ? `<div class="det">${esc(detail)}</div>` : "");
   if (kind === "you") { const t = text.replace(/^“|”$/g, ""); setPref("recent", [t, ...pref("recent", []).filter(x => x !== t)].slice(0, 12)); renderRecents(); }
+  $("#talk").classList.remove("empty");
   const log = $("#log"); log.append(d); while (log.children.length > 80) log.firstChild.remove();
   log.scrollTop = log.scrollHeight;
 }
-addMsg("frosti", "Frosti", "Type a command here, or talk to the phone. Phone conversations appear here too. Everything runs on this laptop, with no cloud.");
+function fillMedia(c, md, playing = true) {
+  c.innerHTML = (md.art && md.art.startsWith("data:image/") ? `<img alt="" src="${esc(md.art)}">` : `<div class="noart"></div>`) +
+    `<div class="t"><div class="label cyan">${playing ? "Now playing" : "Paused"} · ${esc(md.app || "")}</div><div class="tt">${esc(md.title)}</div><div class="ar">${esc(md.artist)}${md.album ? " · " + esc(md.album) : ""}</div></div>`;
+}
+function mediaCard(md) {  // now-playing preview under the reply that started it; now_playing keeps it live
+  const c = document.createElement("div"); c.className = "media"; fillMedia(c, md);
+  const log = $("#log"); log.lastElementChild.append(c); log.scrollTop = log.scrollHeight;
+  S.mediaCard = c;
+}
+function trackList(tracks) {  // Spotify search results under the reply; ▶ plays that exact track on the laptop
+  const c = document.createElement("div"); c.className = "tracks";
+  c.innerHTML = tracks.map(t => `<div class="media">` + (t.art?.startsWith("data:image/") ? `<img alt="" src="${esc(t.art)}">` : `<div class="noart"></div>`) +
+    `<div class="t"><div class="tt">${esc(t.title)}</div><div class="ar">${esc(t.artist)}${t.album ? " · " + esc(t.album) : ""}</div></div>` +
+    `<button class="play" data-uri="${esc(t.uri)}" title="Play ${esc(t.title)}" aria-label="Play ${esc(t.title)}"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></button></div>`).join("");
+  c.onclick = e => { const b = e.target.closest("[data-uri]"); if (b && !send({type: "play_track", uri: b.dataset.uri})) addMsg("notice", "Frosti", "Not linked to the Core."); };
+  const log = $("#log"); log.lastElementChild.append(c); log.scrollTop = log.scrollHeight;
+}
+function liveMedia(md) {  // only the latest card follows the laptop; when playback stops it keeps the last track, paused
+  if (md) S.lastMedia = md;
+  if (S.mediaCard?.isConnected && S.lastMedia) fillMedia(S.mediaCard, S.lastMedia, !!md?.playing);
+  S.mediaAt = Date.now();
+  renderMusic();
+}
 
-// ---------------- system ----------------
-const gb = b => (b / 2 ** 30).toFixed(1);
+// pointerdown, not click: the same press wakes the screen, which hides the card before a click could land
+$("#idleSong").addEventListener("pointerdown", () => show("music"));
+// ---------------- music ----------------
+const clock = s => `${s / 60 | 0}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+function renderMusic() {
+  const m = S.lastMedia, playing = !!m?.playing;
+  $("#idleSong").classList.toggle("on", playing);  // the sleep screen shows the track; a click opens Music
+  if (playing) {
+    $("#idleTitle").textContent = m.title; $("#idleArtist").textContent = m.artist || "";
+    const ia = m.art?.startsWith("data:image/") ? m.art : "";
+    if ($("#idleArt").getAttribute("src") !== ia) ia ? $("#idleArt").setAttribute("src", ia) : $("#idleArt").removeAttribute("src");
+  }
+  if (S.screen !== "music") return;
+  $("#mSrc").textContent = m ? `${playing ? "Now playing" : "Paused"} · ${m.app || "laptop"}` : "Laptop";
+  $("#mTitle").textContent = m ? m.title : "Nothing playing";
+  $("#mArtist").textContent = m ? [m.artist, m.album].filter(Boolean).join(" · ") : "Say “play a song on Spotify”, or search with the magnifier.";
+  const art = m?.art?.startsWith("data:image/") ? m.art : "";
+  if ($("#mArt").getAttribute("src") !== art) art ? $("#mArt").setAttribute("src", art) : $("#mArt").removeAttribute("src");
+  if (S.bgArt !== art) { S.bgArt = art; $("#mBg").style.backgroundImage = art ? `url("${art}")` : ""; }  // the cover, blurred, tints the card
+  $("#mPlay").innerHTML = playing ? `<path d="M6 4h4v16H6zm8 0h4v16h-4z"/>` : `<path d="M7 4l13 8-13 8z"/>`;
+  $("#mShuf").style.visibility = m && m.shuffle != null ? "visible" : "hidden"; $("#mShuf").classList.toggle("on", !!m?.shuffle);
+  const len = m?.length || 0;  // the Core pushes position only on changes; run the clock here between pushes
+  const pos = len ? Math.min(len, (m.position || 0) + (playing ? (Date.now() - S.mediaAt) / 1000 : 0)) : 0;
+  $("#mBar").style.width = len ? `${pos / len * 100}%` : "0";
+  $("#mPos").textContent = len ? clock(pos) : ""; $("#mLeft").textContent = len ? "-" + clock(len - pos) : "";
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-media]"); if (!b) return;
+  let a = b.dataset.media;
+  if (a === "toggle") { a = S.lastMedia?.playing ? "pause" : "play"; if (S.lastMedia) { S.lastMedia.playing = a === "play"; renderMusic(); } }  // instant; the Core corrects it
+  if (!send({type: "media", action: a})) addMsg("notice", "Frosti", "Not linked to the Core.");
+});
+
+// ---------------- processes + performance (laptop only) ----------------
 const dur = s => s >= 3600 ? `${s / 3600 | 0}h ${(s % 3600) / 60 | 0}m` : `${s / 60 | 0}m ${s % 60}s`;
-const stat = (name, value, frac = null, spark = null) => `<div class="stat"><div class="h"><span class="muted">${name}</span><span class="v ${frac > .85 ? "warn" : ""}">${esc(value)}</span></div>` +
-  (frac !== null ? `<div class="meter"><i class="${frac > .85 ? "warn" : ""}" style="width:${Math.min(100, Math.max(0, frac * 100))}%"></i></div>` : "") +
-  (spark ? `<canvas class="spark" data-spark="${spark}" width="600" height="92"></canvas>` : "") + `</div>`;
-const svc = (name, ok, value) => `<div class="row"><span class="dot ${ok ? "on" : "warn"}"></span><span class="t">${name}</span><span class="tag ${ok ? "" : "amber"}">${esc(value)}</span></div>`;
-function push(a, v) { a.push(v); if (a.length > 60) a.shift(); }
+const stat = (name, value, frac = null) => `<div class="stat"><div class="h"><span class="muted">${name}</span><span class="v ${frac > .85 ? "warn" : ""}">${esc(value)}</span></div>` +
+  (frac !== null ? `<div class="meter"><i class="${frac > .85 ? "warn" : ""}" style="width:${Math.min(100, Math.max(0, frac * 100))}%"></i></div>` : "") + `</div>`;
 function onStats(s) {
   S.stats = s;
-  push(S.hist.cpu, s.cpu); push(S.hist.ram, s.ram);
-  const now = Date.now();
-  if (S.lastNet) { const dt = (now - S.lastNet[0]) / 1000; push(S.hist.rx, (s.net_recv - S.lastNet[1]) / 1024 / dt); push(S.hist.tx, (s.net_sent - S.lastNet[2]) / 1024 / dt); }
-  S.lastNet = [now, s.net_recv, s.net_sent];
-  const rx = S.hist.rx.at(-1) ?? 0, tx = S.hist.tx.at(-1) ?? 0, p = s.phone_stats;
-  $("#sysLaptop").innerHTML = stat("Processor", `${Math.round(s.cpu)}% · ${s.cores} cores`, s.cpu / 100, "cpu") +
-    stat("Memory", `${Math.round(s.ram)}% · ${gb(s.ram_used)} / ${gb(s.ram_total)} GB`, s.ram / 100, "ram") +
-    stat("Battery", s.battery == null ? "No battery" : `${s.battery}%${s.plugged ? " · plugged in" : ""}`, s.battery == null ? null : s.battery / 100) +
-    stat("Network", `↓ ${rx.toFixed(0)} KB/s   ↑ ${tx.toFixed(0)} KB/s`, null, "rx");
-  $("#sysPhone").innerHTML = s.phone && p ? stat("Battery", `${p.battery}%${p.charging ? " · charging" : ""}`, p.battery / 100) +
-    stat("Memory", `${gb(p.ram_total - p.ram_free)} / ${gb(p.ram_total)} GB`, (p.ram_total - p.ram_free) / p.ram_total) +
-    stat("Network", p.net) + stat("Link to laptop", `Linked · ${p.link}`)
-    : `<div class="empty">${s.phone ? "Phone linked. Its readings arrive when its System screen is open." : "Phone not linked. Run scripts\\start-frosti.ps1 with the phone on USB."}</div>`;
-  $("#sysAI").innerHTML = stat("Active model", s.model) + stat("Language model", s.llm ? "Ready" : "Warming up") + stat("Voice", s.voice ? s.voice_name : "Off") + stat("Core uptime", dur(s.uptime));
-  $("#sysSvc").innerHTML = svc("Gateway", true, s.gateway) + svc("Language model", s.llm, s.llm ? "Ready" : "Warming") +
-    svc("Speech + wake word", s.voice, s.voice ? "Ready" : "Off") + svc("Phone link", s.phone, s.phone ? "Linked" : "Waiting") + svc("Laptop console", true, "This page");
-  $("#phoneDot").className = "dot " + (s.phone ? "on" : ""); $("#phoneText").textContent = s.phone ? "Phone linked" : "Phone offline";
+  $("#phoneDot").className = "dot " + (s.phone ? "on" : ""); $("#phoneFoot").title = s.phone ? "Phone linked" : "Phone offline";
+  renderStats();
   $("#tPhone").className = $("#phoneDot").className; $("#tPhoneT").textContent = s.phone ? "Phone mic" : "Phone offline";
-  $$("[data-spark]").forEach(c => sparkline(c, S.hist[c.dataset.spark], c.dataset.spark === "rx" ? null : 100));
   if (S.screen === "setup") renderSetup();
 }
-function sparkline(c, data, max) {
-  const g = c.getContext("2d"), W = c.width, H = c.height; g.clearRect(0, 0, W, H);
-  if (data.length < 2) return;
-  const m = max || Math.max(8, ...data) * 1.2, x = i => i * W / 59, y = v => H - 4 - (v / m) * (H - 8);
-  const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, "rgba(217,119,87,.25)"); gr.addColorStop(1, "rgba(217,119,87,0)");
-  const off = 60 - data.length;
-  g.beginPath(); data.forEach((v, i) => g[i ? "lineTo" : "moveTo"](x(i + off), y(v)));
-  g.strokeStyle = "#d97757"; g.lineWidth = 2; g.stroke();
-  g.lineTo(x(59), H); g.lineTo(x(off), H); g.fillStyle = gr; g.fill();
-}
 
-// ---------------- tools ----------------
-function renderTools() {
-  const projects = (S.memory?.projects || []).map(p => p.name);
-  const row = (title, hint, attrs, tag = "›", amber = false) =>
-    `<button class="row" ${attrs}><span class="t"><div>${esc(title)}</div><div class="label">${esc(hint)}</div></span><span class="tag ${amber ? "amber" : ""}">${tag}</span></button>`;
-  const cmd = (title, text, tag, amber) => row(title, `“${text}”`, `data-cmd="${esc(text)}"`, tag, amber);
-  const ask = (title, hint, q, tpl, tag, amber) => row(title, hint, `data-ask="${esc(q)}" data-tpl="${esc(tpl)}"`, tag, amber);
-  $("#tools").innerHTML = [
-    `<div><div class="label section">Launch</div>` + ask("Open on laptop…", "“open chrome on the laptop”", "App name", "open {} on the laptop") +
-      ask("Open on phone…", "“open spotify on my phone”", "App name", "open {} on my phone") +
-      projects.map(p => cmd(`Open ${p} in VS Code`, `open ${p} in vs code`)).join("") + `</div>`,
-    `<div><div class="label section">Phone controls</div>` +
-      `<div class="stat"><div class="h"><span>Brightness</span><span class="tag" id="bv">50%</span></div><input class="range" type="range" min="0" max="100" value="50" data-slider="brightness"></div>` +
-      `<div class="stat"><div class="h"><span>Volume</span><span class="tag" id="vv">50%</span></div><input class="range" type="range" min="0" max="100" value="50" data-slider="volume"></div>` +
-      cmd("Mute phone", "mute the phone") + `</div>`,
-    `<div><div class="label section">Status</div>` + cmd("Laptop processor", "what's the laptop cpu") + cmd("Laptop memory", "laptop ram usage") +
-      cmd("Laptop storage", "laptop storage") + cmd("Phone battery", "phone battery") + `</div>`,
-    `<div><div class="label section">Automation</div>` + ask("Timer…", "“set a timer for 10 minutes”", "Minutes", "set a timer for {} minutes") +
-      cmd("Focus session", "set a timer for 25 minutes for focus") +
-      projects.map(p => cmd(`Run tests · ${p}`, `run the tests for ${p}`) + cmd(`Git status · ${p}`, `git status for ${p}`)).join("") +
-      ask("PowerShell…", "Runs on the laptop after you confirm", "Command", "use powershell to run: {}", "Confirm", true) +
-      ask("Close a laptop app…", "“kill notepad”", "Process name", "kill {}", "Confirm", true) + `</div>`,
-    `<div><div class="label section">Memory</div>` + ask("Remember…", "“remember that …”", "A fact about you", "remember that {}") +
-      ask("Recall…", "“what do you know about …”", "Topic", "what do you know about {}") + `</div>`,
-  ].join("");
-}
-document.addEventListener("click", e => {
-  const a = e.target.closest("[data-ask]"); if (!a) return;
-  prompt_(a.dataset.ask, v => command(a.dataset.tpl.replace("{}", v)));
-});
-document.addEventListener("input", e => { if (e.target.dataset.slider) $(e.target.dataset.slider === "brightness" ? "#bv" : "#vv").textContent = e.target.value + "%"; });
-document.addEventListener("change", e => { const s = e.target.dataset.slider; if (s) command(`set ${s} to ${e.target.value}`, false); });
-
-// ---------------- memory ----------------
-const ago = ts => { const s = Date.now() / 1000 - ts; return s < 60 ? "just now" : s < 3600 ? `${s / 60 | 0}m ago` : s < 86400 ? `${s / 3600 | 0}h ago` : `${s / 86400 | 0}d ago`; };
-$("#chips").innerHTML = ["Recent", "Facts", "Projects", "Tasks"].map(t => `<button data-tab="${t}">${t}</button>`).join("");
-$("#chips").onclick = e => { const b = e.target.closest("[data-tab]"); if (b) { S.memTab = b.dataset.tab; renderMemory(); } };
-function renderMemory() {
-  $$("[data-tab]").forEach(b => b.classList.toggle("on", b.dataset.tab === S.memTab));
-  const m = S.memory, el = $("#mem");
-  if (!m) { el.innerHTML = `<div class="empty">${S.linked ? "Loading…" : "Memory lives in the Core. Waiting for the link."}</div>`; return; }
-  const line = (title, hint, tag = "", amber = false, attrs = "") =>
-    `<${attrs ? "button" : "div"} class="row" ${attrs}><span class="t"><div>${esc(title)}</div><div class="label">${esc(hint)}</div></span><span class="tag ${amber ? "amber" : ""}">${esc(tag)}</span></${attrs ? "button" : "div"}>`;
-  let h = "";
-  if (S.memTab === "Recent") {
-    h += `<div class="label section">Conversation</div>` + (m.history.length ? m.history.map(e =>
-      `<div class="msg ${e.role === "user" ? "you" : ""}"><div class="who label ${e.role === "user" ? "dim" : "cyan"}">${e.role === "user" ? "You" : "Frosti"}</div><div class="body">${esc(e.content)}</div></div>`).join("") : `<div class="empty">Nothing said yet this session.</div>`);
-    h += `<div class="label section">Actions</div>` + (m.recent.length ? m.recent.map(e => line(e.result || e.tool, `${e.tool} · ${e.source} · ${ago(e.ts)}`,
-      e.approved ? `T${e.tier}` : "Declined", !e.approved || e.tier >= 2)).join("") : `<div class="empty">No actions yet.</div>`);
-  } else if (S.memTab === "Facts") {
-    h += line("Remember something new", "Click to add", "+", false, `data-ask="A fact about you" data-tpl="remember that {}"`);
-    h += m.facts.length ? m.facts.map(f => line(f.fact, ago(f.ts), "Forget", true, `data-forget="${f.id}" data-fact="${esc(f.fact)}"`)).join("")
-      : `<div class="empty">No stored facts yet. Try “remember that I prefer dark themes”.</div>`;
-  } else if (S.memTab === "Projects") {
-    h += m.projects.length ? m.projects.map(p => `<div class="label section">${esc(p.name)} · <span class="dim">${esc(p.path)}</span></div>` +
-      [["Git status", `git status for ${p.name}`], ["Recent commits", `show the recent commits in ${p.name}`], ["Run tests", `run the tests for ${p.name}`], ["Open in VS Code", `open ${p.name} in vs code`]]
-        .map(([t, c]) => line(t, `“${c}”`, "›", false, `data-cmd="${esc(c)}"`)).join("")).join("")
-      : `<div class="empty">No projects configured in core/config/frosti.toml.</div>`;
-  } else {
-    h += line("New timer", "Minutes, with an optional label", "+", false, `data-ask="Minutes" data-tpl="set a timer for {} minutes"`);
-    h += m.timers.length ? m.timers.map(t => line(t.label || "Timer", `${dur(Math.max(0, Math.round(t.due - Date.now() / 1000)))} left`, "●")).join("")
-      : `<div class="empty">No timers or reminders running.</div>`;
-  }
-  el.innerHTML = h;
-}
-document.addEventListener("click", e => {
-  const f = e.target.closest("[data-forget]"); if (!f) return;
-  dialog({title: "Forget this?", text: f.dataset.fact, yes: "Forget", amber: true, onYes: () => send({type: "forget", id: +f.dataset.forget})});
-});
-
-// ---------------- activity ----------------
-const ACT_TABS = {All: () => true, Phone: e => e.source === "phone", Laptop: e => e.source === "desk", Declined: e => !e.approved, Risky: e => e.tier >= 2};
-S.actTab = "All";
-$("#actChips").innerHTML = Object.keys(ACT_TABS).map(t => `<button data-act="${t}">${t}</button>`).join("");
-$("#actChips").onclick = e => { const b = e.target.closest("[data-act]"); if (b) { S.actTab = b.dataset.act; renderActivity(); } };
-function renderActivity() {
-  $$("[data-act]").forEach(b => b.classList.toggle("on", b.dataset.act === S.actTab));
-  const el = $("#act"), all = S.log;
-  if (!all) { el.innerHTML = `<div class="empty">${S.linked ? "Loading…" : "The activity log lives in the Core. Waiting for the link."}</div>`; return; }
-  const today = new Date().setHours(0, 0, 0, 0) / 1000, t = all.filter(e => e.ts >= today);
-  $("#actSum").textContent = `${t.length} actions today · ${t.filter(e => !e.approved).length} declined · ${t.filter(e => e.source === "phone").length} from the phone. Updates live.`;
-  const rows = all.filter(ACT_TABS[S.actTab]);
-  let h = "", day = "";
-  for (const e of rows) {
-    const d = new Date(e.ts * 1000), ds = d.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"});
-    if (ds !== day) { day = ds; h += `<div class="label section">${esc(ds)}</div>`; }
-    const args = e.args && e.args !== "{}" ? ` · ${e.args}` : "";
-    h += `<div class="row" title="${esc(e.result)}"><span class="t"><div>${esc(e.result || e.tool)}</div>` +
-      `<div class="label">${d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", hour12: false})} · ${esc(e.tool)} · ${e.source === "desk" ? "laptop" : esc(e.source)}${esc(args)}</div></span>` +
-      `<span class="tag ${!e.approved || e.tier >= 2 ? "amber" : ""}">${e.approved ? `T${e.tier}` : "Declined"}</span></div>`;
-  }
-  el.innerHTML = h || `<div class="empty">${all.length ? "Nothing matches this filter." : "No actions yet. Ask FROSTI to do something."}</div>`;
+const gb = b => (b / 2 ** 30).toFixed(1);
+function renderStats() {
+  const s = S.linked ? S.stats : null;
+  const most = Math.max(1, ...(s?.top || []).map(p => p.ram));  // bars: memory share against the hungriest program
+  if (S.screen === "processes") $("#procs").innerHTML = !s ? `<div class="empty">Not linked to the Core.</div>` : !s.top?.length ? `<div class="empty">Measuring…</div>` :
+    s.top.map(p => { const n = p.name.replace(/\.exe$/i, "");
+      return `<button class="row" data-cmd="kill ${esc(n)}" data-stay><span class="t"><div>${esc(n)}</div><div class="label">CPU ${Math.round(p.cpu)}% · RAM ${Math.round(p.ram / 2 ** 20)} MB</div></span><span class="tag amber">Close</span></button>` +
+        `<div class="procbar"><i style="width:${p.ram / most * 100}%"></i></div>`; }).join("");
+  if (!s) { if (S.screen === "performance") $("#perf").innerHTML = `<div class="empty">Not linked to the Core.</div>`; return; }
+  // a tile: label, one big number, a detail line, a meter slot (amber above 85 % only where high is bad)
+  const tile = (name, big, sub, frac = null, warn = true) => `<div class="tile"><div class="label">${name}</div><div class="big ${warn && frac > .85 ? "warn" : ""}">${esc(big)}</div><div class="sub">${esc(sub)}</div>` +
+    `<div class="meter" style="${frac === null ? "visibility:hidden" : ""}"><i style="width:${Math.min(100, Math.max(0, (frac || 0) * 100))}%"></i></div></div>`;
+  const now = Date.now();
+  if (S.lastNet && now - S.lastNet[0] > 500) S.rate = [(s.net_recv - S.lastNet[1]) / 1024 / ((now - S.lastNet[0]) / 1000), (s.net_sent - S.lastNet[2]) / 1024 / ((now - S.lastNet[0]) / 1000)];
+  S.lastNet = [now, s.net_recv, s.net_sent];
+  if (S.screen === "performance") $("#perf").innerHTML =
+    tile("Processor", `${Math.round(s.cpu)}%`, `${s.cores} cores`, s.cpu / 100) +
+    tile("Memory", `${Math.round(s.ram)}%`, `${gb(s.ram_used)} of ${gb(s.ram_total)} GB`, s.ram / 100) +
+    (s.disk == null ? tile("Storage", "—", "Restart the Core to see this") : tile("Storage", `${Math.round(s.disk)}%`, `${gb(s.disk_used)} of ${gb(s.disk_total)} GB`, s.disk / 100)) +
+    (s.battery == null ? tile("Battery", "—", "No battery") : tile("Battery", `${s.battery}%`, s.plugged ? "Plugged in" : "On battery", s.battery / 100, false)) +
+    tile("Network", S.rate ? `↓ ${S.rate[0].toFixed(0)}` : "…", S.rate ? `KB/s down · ↑ ${S.rate[1].toFixed(0)} KB/s up` : "Measuring") +
+    tile("Core uptime", dur(s.uptime).replace(/ \d+s$/, ""), "Since the Core started");
 }
 
 // ---------------- setup ----------------
@@ -547,16 +543,8 @@ function renderSetup() {
   const tog = (title, hint, k, d) => `<button class="row" data-pref="${k}" data-def="${d}"><span class="t"><div>${title}</div><div class="label">${hint}</div></span><span class="tag ${pref(k, d) ? "" : "dim"}">${pref(k, d) ? "On" : "Off"}</span></button>`;
   const idle = pref("idle", 180);
   $("#setup").innerHTML = [
-    `<div><div class="label section">AI model</div>` + val("Model", "Local · llama.cpp on this laptop", s.model || "—") +
-      val("State", "Fast-path rules first, then the model", s.llm ? "Ready" : S.stats ? "Warming" : "—", S.stats && !s.llm) +
-      val("Change model", "Edit [llm] model in core/config/frosti.toml", "Config") + `</div>`,
-    `<div><div class="label section">Voice</div>` + val("Voice", "Piper text-to-speech", s.voice ? s.voice_name : "Off", S.stats && !s.voice) +
-      val("Wake word", "“Hey Frosti” · detected on this laptop", "On") + val("Follow-up window", "Keep listening after a reply", "6 s") + `</div>`,
-    `<div><div class="label section">Device pairing</div>` + val("Gateway", "Phone over USB via adb reverse", s.gateway || "—") +
-      val("Phone", "Paired with scripts\\provision-phone.ps1", s.phone ? "Linked" : "Not linked", !s.phone) +
-      val("This console", "Loopback only · token injected by the Core", S.linked ? "Linked" : "Offline", !S.linked) + `</div>`,
-    `<div><div class="label section">Privacy & permissions</div>` + val("Confirmations", "Commits, kills and PowerShell always ask", "Always", true) +
-      val("Audit log", "Append-only, in data\\frosti.db", "On") + val("Cloud AI", "No cloud services or paid APIs", "None") + `</div>`,
+    `<div><div class="label section">Status</div>` + val("Voice", "Piper text-to-speech", s.voice ? s.voice_name : "Off", S.stats && !s.voice) +
+      val("Phone", "Paired with scripts\\provision-phone.ps1", s.phone ? "Linked" : "Not linked", !s.phone) + `</div>`,
     `<div><div class="label section">Appearance</div>` + tog("Boot animation", "When the console opens", "bootAnim", true) +
       `<button class="row" id="idleBtn"><span class="t"><div>Ambient clock</div><div class="label">After no input for</div></span><span class="tag">${idle ? (idle < 60 ? idle + " s" : idle / 60 + " min") : "Never"}</span></button>` +
       tog("Reduce motion", "Calmer core, no boot animation", "reduce", false) + `</div>`,
@@ -594,10 +582,10 @@ function tick() {
   const d = new Date(), hm = d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", hour12: false}), hr = d.getHours();
   $$("[data-clock]").forEach(e => e.textContent = hm);
   $("#greet").textContent = hr < 5 ? "Still up?" : hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening";
-  $("#idleDate").textContent = d.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"});
+  $$("[data-date]").forEach(e => e.textContent = d.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}));
+  if (S.screen === "music" && S.lastMedia?.playing) renderMusic();
   $("#idleInfo").textContent = `${S.linked ? "Core linked" : "Core offline"} · ${S.stats?.phone ? "Phone linked" : "Phone offline"}`;
   if (S.linked) send({type: "stats"});
-  if (S.screen === "memory" && S.memTab === "Tasks") renderMemory();
 }
 let idleTimer;
 function wake() {
@@ -620,8 +608,8 @@ function boot() {
   b.onclick = end; setTimeout(end, 2600);
 }
 
-renderTools(); renderMemory(); renderRecents();
-show(pref("screen", "home"));
+renderRecents();
+show(pref("screen", "talk"));
 boot(); tick(); setInterval(tick, 2000); wake();
 setState("offline"); connect();
 requestAnimationFrame(frame);

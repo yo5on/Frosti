@@ -1,14 +1,18 @@
 """WebSocket gateway for the phone Shell.
 
 Protocol (JSON text frames; binary frames = audio):
- phone -> core: {"type":"hello","token"} first; {"type":"text","text"}; {"type":"ptt","on":bool};
+ phone -> core: {"type":"hello","token","last_reply"} first (last_reply: rid of the last reply received; newer ones are resent); {"type":"text","text"}; {"type":"ptt","on":bool};
                 {"type":"listen"} (tap orb); {"type":"played"} (finished playing our audio);
                 {"type":"result","id","text"} (phone tool done); {"type":"confirm","id","ok"};
+                {"type":"media","action":play|pause|next|previous|shuffle} (Music screen buttons; no reply);
+                {"type":"play_track","uri":"spotify:track:…"} (a search result's play button; no reply);
                 binary: 16 kHz mono int16 PCM mic stream
  core -> phone: {"type":"state","state":idle|listening|thinking|speaking}; {"type":"heard","text"};
-                {"type":"reply","text","detail","path","seconds"}; {"type":"tool","id","name","args"};
+                {"type":"reply","rid","text","detail","path","seconds"}; {"type":"tool","id","name","args"};
                 {"type":"activity","name","args"} (a tool is starting: the character acts it out); reply also carries "tool";
                 {"type":"confirm","id","summary","tier"}; {"type":"notify","text"};
+                {"type":"now_playing","media":{title,artist,album,art,app,playing,position,length,shuffle}|null}
+                (on connect, on every change and on a seek; position/length in seconds or null, shuffle null if unsupported);
                 binary: WAV audio, one per sentence
  dashboards:    {"type":"stats","phone":{...}} -> {"type":"stats",...}; {"type":"memory"} -> {"type":"memory",...};
                 {"type":"log"} -> {"type":"log","entries":[...]} (latest 300 audit rows);
@@ -16,14 +20,16 @@ Protocol (JSON text frames; binary frames = audio):
  laptop console: GET / serves console.html (loopback only); it says {"type":"hello","token","client":"desk"},
                 sees the phone's state/heard/reply/notify mirrored with "src":"phone", and its phone tools go to the phone
 """
-import asyncio, hmac, itertools, json, secrets, ssl, time
+import asyncio, hmac, itertools, json, os, re, secrets, ssl, time
 from http import HTTPStatus
 from pathlib import Path
 import psutil
 import websockets
 from . import CONFIG, DATA
 from .brain import Brain, Session, sentences
-from .tools import PROJECTS
+from .tools import PROJECTS, laptop_volume, media_session, now_playing, top_processes_cached
+
+MEDIA_ACTIONS = {"play", "pause", "next", "previous", "shuffle"}
 from .voice import Listener
 
 STARTED = time.time()
@@ -39,6 +45,7 @@ def token():
 class PhoneSession(Session):
     name = "phone"
     ids = itertools.count(1)
+    reply_ids = itertools.count(int(time.time() * 1000))  # keeps rising across Core restarts; the phone remembers the last
 
     def __init__(self, ws, brain, voice):
         self.ws, self.brain, self.voice = ws, brain, voice
@@ -95,12 +102,22 @@ class PhoneSession(Session):
 
     async def handle_text(self, text):
         await self.send(type="state", state="thinking")
-        r = await self.brain.handle(text, self)
-        await self.send(type="reply", text=r["reply"], detail=r["detail"], tool=r["tool"], path=r["path"], seconds=round(r["seconds"], 2))
-        if self.voice:
-            await self.say(r["reply"])  # phone sends "played" when done -> follow-up window
-        else:
-            await self.send(type="state", state="idle")
+        await self.deliver(await self.brain.handle(text, self))
+
+    async def deliver(self, r, rid=None):
+        if self.name == "phone":
+            # The laptop hotspot drops the phone for a few seconds now and then, and a reply sent meanwhile is lost
+            # silently. Number replies; the phone's hello says which one it got last, and missing ones are resent.
+            rid = rid or next(self.reply_ids)
+            self.brain.last_reply = (time.monotonic(), rid, r)
+        try:
+            await self.send(type="reply", rid=rid, text=r["reply"], detail=r["detail"], tool=r["tool"], path=r["path"], seconds=round(r["seconds"], 2), media=r.get("media"))
+            if self.voice:
+                await self.say(r["reply"])  # phone sends "played" when done -> follow-up window
+            else:
+                await self.send(type="state", state="idle")
+        except websockets.ConnectionClosed:
+            pass  # resent when the phone reconnects
 
     async def on_audio_event(self, ev):
         kind, audio = ev
@@ -147,6 +164,20 @@ class PhoneSession(Session):
                 await self.send(type="memory", **memory(self.brain))
             elif t == "text":
                 spawn(self.handle_text(m["text"]))
+            elif t == "media" and m.get("action") in MEDIA_ACTIONS:  # desk panel buttons: quiet, no reply
+                try:
+                    await asyncio.wait_for(media_session(m["action"]), 5)
+                    self.brain.store.audit(self.name, "media_control", {"action": m["action"]}, 1, True, "desk panel")
+                except Exception as e:  # no winrt, or the app ignored the button: the next now_playing shows the truth
+                    print(f"[media] {m['action']}: {type(e).__name__}: {e}", flush=True)
+            elif t == "play_track" and re.fullmatch(r"spotify:track:[A-Za-z0-9]{22}", str(m.get("uri"))):  # a search result's play button
+                os.startfile(m["uri"])  # the desktop app starts playing a track link it is given; now_playing shows it
+                self.brain.store.audit(self.name, "play_music", {"uri": m["uri"]}, 1, True, "search result")
+            elif t == "volume" and m.get("step") in (1, -1):  # phone volume buttons: the phone draws its own bar
+                try:
+                    await self.send(type="volume", level=laptop_volume(m["step"]))
+                except OSError as e:
+                    print(f"[volume] {e}", flush=True)
             elif t == "new":  # console "New chat": drop the follow-up context
                 self.brain.history = []
             elif t == "ptt" and self.listener:
@@ -174,19 +205,32 @@ class DeskSession(PhoneSession):
         phones = [s for s in self.brain.sessions if s.name == "phone"]
         return await phones[0].phone(tool, args) if phones else "The phone isn't connected."
 
+def drives():
+    """Every fixed drive (C:, D:, E: ...), same filter as the storage tool."""
+    out = []
+    for p in psutil.disk_partitions():
+        if "fixed" not in p.opts: continue
+        try: u = psutil.disk_usage(p.mountpoint)
+        except OSError: continue  # locked or ejected drive
+        out.append(dict(name=p.device[:2], used=u.used, total=u.total, percent=u.percent))
+    return out
+
 def stats(brain):
     m, b, n = psutil.virtual_memory(), psutil.sensors_battery(), psutil.net_io_counters()
+    d = psutil.disk_usage(Path.home().anchor)  # the system drive
     return dict(cpu=psutil.cpu_percent(None), cores=psutil.cpu_count(), ram=m.percent, ram_used=m.used, ram_total=m.total,
                 battery=round(b.percent) if b else None, plugged=bool(b and b.power_plugged),
-                net_sent=n.bytes_sent, net_recv=n.bytes_recv,
-                model=Path(CONFIG["llm"]["model"]).stem, llm=brain.llm.ready, voice=getattr(brain, "voice_loaded", False),
+                disk=d.percent, disk_used=d.used, disk_total=d.total, drives=drives(),
+                net_sent=n.bytes_sent, net_recv=n.bytes_recv, top=top_processes_cached(),
+                voice=getattr(brain, "voice_loaded", False),
                 voice_name=CONFIG["speech"]["voice"], phone=any(s.name == "phone" for s in brain.sessions),
                 phone_stats=getattr(brain, "phone_stats", None), uptime=round(time.time() - STARTED),
                 gateway=f"{CONFIG['gateway']['host']}:{CONFIG['gateway']['port']}")
 
 def memory(brain):
     return dict(facts=brain.store.facts(), recent=brain.store.recent(), history=brain.history,
-                projects=[dict(name=k, path=v["path"]) for k, v in PROJECTS.items()], timers=brain.active_timers())
+                projects=[dict(name=k, path=v["path"]) for k, v in PROJECTS.items()], timers=brain.active_timers(),
+                tasks=brain.store.tasks())
 
 LOOPBACK = {"127.0.0.1", "::1"}
 # FROSTI's animation engine, its data and the preview gallery (same loopback rule as the console)
@@ -217,9 +261,42 @@ def console_page(connection, request):
     r.headers["Cache-Control"] = "no-store"
     return r
 
+def _still(md):
+    return md and {k: v for k, v in md.items() if k != "position"}
+
+async def watch_media(brain, every=2.0):
+    """Push {"type":"now_playing","media"} to every client whenever the laptop's track or play/pause state changes."""
+    async def push(s, frame):
+        try:
+            await asyncio.wait_for(s.ws.send(frame), 10)
+        except (websockets.ConnectionClosed, asyncio.TimeoutError):
+            pass
+    last, sent = None, 0.0
+    while True:
+        try:
+            md = await asyncio.wait_for(now_playing(), 5)
+        except Exception as e:  # a media app quitting mid-read, or Windows not answering; keep watching
+            print(f"[media] {type(e).__name__}: {e}", flush=True)
+            md = last
+        brain.now_playing = md  # fresh position for clients that connect later
+        # position moves every poll: push only real changes (track, play/pause, shuffle) or a seek, and let clients run the clock
+        moved = False
+        if md and last and md.get("position") is not None and last.get("position") is not None:
+            clock = last["position"] + (time.monotonic() - sent if last["playing"] else 0)
+            moved = abs(md["position"] - clock) > 3
+        if moved or _still(md) != _still(last):
+            last, sent = md, time.monotonic()
+            frame = json.dumps({"type": "now_playing", "media": md})
+            # a slow phone can't hold up the console; the terminal Console session has no socket
+            await asyncio.gather(*(push(s, frame) for s in list(brain.sessions) if hasattr(s, "ws")))
+        await asyncio.sleep(every)
+
 async def serve(brain, voice):
     tok = token()
     brain.voice_loaded = voice is not None
+    brain.now_playing = None
+    brain.media_watch = asyncio.create_task(watch_media(brain))
+    brain.media_watch.add_done_callback(lambda t: t.cancelled() or print(f"[media] watcher stopped: {t.exception()!r}", flush=True))
 
     async def handler(ws):
         try:
@@ -236,6 +313,11 @@ async def serve(brain, voice):
         try:
             await s.send(type="ready", local_wake=s.local_wake)
             await s.send(type="state", state="idle")
+            await s.send(type="now_playing", media=brain.now_playing)
+            late, got = getattr(brain, "last_reply", None), hello.get("last_reply")
+            # older answers are stale: don't speak them out of the blue. An app without last_reply gets no resends.
+            if s.name == "phone" and late and isinstance(got, int) and got < late[1] and time.monotonic() - late[0] < 60:
+                s.resend = asyncio.create_task(s.deliver(late[2], late[1]))  # beside run(), so "played" etc. still arrive
             await s.run()
         except websockets.ConnectionClosed:
             pass

@@ -1,16 +1,11 @@
-# FROSTI Core configuration. Paths are absolute; weights live on D: (never in the repo).
-
-[llm]
-server = "D:/frosti-tools/llama-cpu/llama-server.exe"
-model = "D:/frosti-models/gemma-4-E4B-it-Q4_0.gguf"   # Phase 0 pick; fallback: Qwen3.5-4B-Q4_K_M.gguf
-port = 8091
-threads = 4
+# FROSTI Core configuration. Paths are absolute; speech models live on D: (never in the repo).
 
 [speech]
 models = "D:/frosti-models/speech"
 threads = 4
-voice = "kokoro-en-v0_19"
-speaker = 1  # Bella
+asr = "moonshine"   # or "parakeet": ~800 MB more RAM, same accuracy on FROSTI's commands (2026-11-12)
+voice = "vits-piper-en_GB-jenny_dioco-medium"   # soft female; "kokoro-en-v0_19" (speaker 1 Bella) is more natural but ~350 MB more RAM, ~10x slower
+speaker = 0
 
 [gateway]
 host = "127.0.0.1"   # USB via `adb reverse`; set to the LAN IP only on a trusted network

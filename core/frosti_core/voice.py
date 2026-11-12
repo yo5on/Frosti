@@ -1,4 +1,4 @@
-"""Speech on the laptop (sherpa-onnx 1.13.8): Parakeet ASR, Piper TTS, KWS wake word, Silero VAD.
+"""Speech on the laptop (sherpa-onnx 1.13.8): Moonshine (or Parakeet) ASR, Piper (or Kokoro) TTS, KWS wake word, Silero VAD.
 
 The phone streams 16 kHz mono int16 PCM; Listener turns that stream into utterances.
 """
@@ -25,10 +25,15 @@ def _dir(root, pattern):
 class Voice:
     def __init__(self):
         c = CONFIG["speech"]; m = Path(c["models"]); th = c["threads"]
-        p = _dir(m, "*parakeet*")
-        self.asr = sherpa_onnx.OfflineRecognizer.from_transducer(
-            encoder=_one(p, "encoder*.onnx"), decoder=_one(p, "decoder*.onnx"), joiner=_one(p, "joiner*.onnx"),
-            tokens=str(p / "tokens.txt"), model_type="nemo_transducer", num_threads=th)
+        if c.get("asr", "moonshine") == "moonshine":  # ~4x less RAM than Parakeet, 3.3% vs 0% WER in bench/speech.py
+            p = _dir(m, "*moonshine*")
+            self.asr = sherpa_onnx.OfflineRecognizer.from_moonshine_v2(
+                encoder=_one(p, "encoder*"), decoder=_one(p, "decoder*"), tokens=str(p / "tokens.txt"), num_threads=th)
+        else:
+            p = _dir(m, "*parakeet*")
+            self.asr = sherpa_onnx.OfflineRecognizer.from_transducer(
+                encoder=_one(p, "encoder*.onnx"), decoder=_one(p, "decoder*.onnx"), joiner=_one(p, "joiner*.onnx"),
+                tokens=str(p / "tokens.txt"), model_type="nemo_transducer", num_threads=th)
         v = m / c["voice"]
         self.speaker = c.get("speaker", 0)
         if (v / "voices.bin").exists():

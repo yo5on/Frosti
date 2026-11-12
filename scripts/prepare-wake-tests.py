@@ -13,7 +13,8 @@ directory.mkdir(exist_ok=True)
 for name, text in [('frosti', 'Frosti.'), ('hey-frosti', 'Hey Frosti.'),
                    ('unrelated', 'Open Spotify on my phone.'), ('other-name', 'Hey Siri.'),
                    ('cmd-battery', "What's my battery?"), ('cmd-youtube', 'Open YouTube.'),
-                   ('cmd-volume', 'Volume up.')]:
+                   ('cmd-volume', 'Volume up.'), ('cmd-timer-five', 'Five minute timer.'),
+                   ('cmd-timer-twenty-five', 'Twenty five minute timer.')]:
     audio = voice.tts.generate(text, sid=voice.speaker, speed=1.0)
     samples = np.array(audio.samples, np.float32)
     samples = np.interp(np.arange(round(len(samples) * SR / audio.sample_rate)) * audio.sample_rate / SR,

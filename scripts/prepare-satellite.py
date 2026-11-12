@@ -13,7 +13,7 @@ OUT = Path(__file__).resolve().parent.parent / "core/config/satellite-commands.t
 COMMANDS = {
     "battery": "get_status=battery", "what's my battery": "get_status=battery",
     "storage": "get_status=storage", "temperature": "get_status=temperature",
-    "what time is it": "time=", "time": "time=",
+    "what time is it": "time=",
     "volume up": "volume_step=1", "louder": "volume_step=1",
     "volume down": "volume_step=-1", "quieter": "volume_step=-1", "mute": "set_volume=0",
     "brightness up": "set_brightness=100", "brightness down": "set_brightness=20",
@@ -26,8 +26,17 @@ for app in ["youtube", "spotify", "camera", "settings", "chrome", "whatsapp", "g
             "messages", "clock", "calculator", "calendar", "maps"]:
     COMMANDS[f"open {app}"] = f"open_app={app}"
 
-KNOWN = {"get_status", "time", "volume_step", "set_volume", "set_brightness", "media_control", "open_app"}
+for word, minutes in [("one", 1), ("two", 2), ("three", 3), ("five", 5), ("ten", 10),
+                      ("fifteen", 15), ("twenty", 20), ("twenty five", 25), ("thirty", 30),
+                      ("forty five", 45), ("sixty", 60)]:
+    COMMANDS[f"{word} minute timer"] = f"set_timer={minutes}"
+    COMMANDS[f"set a timer for {word} minutes"] = f"set_timer={minutes}"
+COMMANDS["show timers"] = "show_timers="
+
+KNOWN = {"get_status", "time", "volume_step", "set_volume", "set_brightness", "media_control", "open_app", "set_timer", "show_timers"}
 assert all(v.split("=")[0] in KNOWN for v in COMMANDS.values())
+assert COMMANDS["five minute timer"] == "set_timer=5"
+assert COMMANDS["twenty five minute timer"] == "set_timer=25"
 
 phrases = list(COMMANDS)
 tokens = sherpa_onnx.text2token([p.upper() for p in phrases], tokens=str(KWS / "tokens.txt"),

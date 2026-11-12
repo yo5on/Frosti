@@ -39,7 +39,7 @@ interface Screen {
 }
 
 /**
- * FROSTI's Home launcher: header, six screens behind a bottom nav, a boot sequence and an ambient idle clock.
+ * FROSTI's Home launcher: header, seven screens behind a bottom nav, a boot sequence and an ambient idle clock.
  * The Core link, audio and phone tools live in FrostiService; this is only the face.
  */
 class MainActivity : Activity() {
@@ -49,33 +49,44 @@ class MainActivity : Activity() {
     var linked = false; private set
     var coreState = "offline"; private set
     var stats: JSONObject? = null; private set
-    var memory: JSONObject? = null; private set
+    var media: JSONObject? = null; private set  // what the laptop plays; mediaAt: when it arrived (elapsedRealtime)
+    var mediaAt = 0L; private set
     var micOk = true; private set
 
     private val cores = mutableListOf<CoreView>()
     /** the one penguin every CoreView draws (CoreView.kt; same animations as the laptop console) */
     val frosti by lazy { Controller(Spec.load(this), walkIn = prefs.getBoolean("boot", true) && !reduceMotion()) }
     private lateinit var screens: LinkedHashMap<String, Screen>
-    private var current = "home"
+    private var current = "talk"
     private lateinit var content: FrameLayout
     private lateinit var root: FrameLayout
-    private lateinit var brand: SparkView
     private lateinit var linkDot: Dot
     private lateinit var linkText: TextView
     private lateinit var battText: TextView
-    private val navItems = mutableMapOf<String, Pair<View, TextView>>()
+    private val navItems = mutableMapOf<String, Triple<View, Icon, TextView>>()
     private var idle: View? = null
     private lateinit var idleInfo: TextView
 
     // ---------- lifecycle ----------
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         window.statusBarColor = Ui.BG; window.navigationBarColor = Ui.BG
         saveProvisioning(intent)
         applyOrientation()
         @Suppress("DEPRECATION") registerReceiver(recents, IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS))
         setContentView(build())
+        // a Fullscreen theme ignores adjustResize, so lift the content above the keyboard ourselves
+        val frame = findViewById<View>(android.R.id.content); val seen = android.graphics.Rect()
+        window.decorView.viewTreeObserver.addOnGlobalLayoutListener {
+            window.decorView.getWindowVisibleDisplayFrame(seen)
+            // under a fifth of the screen is just the navigation bar, not a keyboard
+            val kb = (window.decorView.height - seen.bottom).let { if (it > window.decorView.height / 5) it else 0 }
+            if (frame.paddingBottom != kb) {
+                frame.setPadding(0, 0, 0, kb)
+                (screens["talk"] as? TalkScreen)?.keyboard(kb > 0)  // the keyboard has its own Frosti in its gap
+                side.forEach { it.visibility = if (kb > 0) View.GONE else View.VISIBLE }  // landscape rail steps aside too
+            }
+        }
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1)
         else FrostiService.start(this)
@@ -92,7 +103,7 @@ class MainActivity : Activity() {
         super.onNewIntent(i)
         if (saveProvisioning(i)) FrostiService.instance?.reconnect()
         i.getStringExtra("confirm")?.let { showConfirm(JSONObject(it)) }
-        if (i.hasCategory(Intent.CATEGORY_HOME)) { hideIdle(); go("home") }  // Home button returns to Home
+        if (i.hasCategory(Intent.CATEGORY_HOME)) { hideIdle(); go("talk") }  // Home button returns to Chat
     }
 
     override fun onResume() {
@@ -102,7 +113,7 @@ class MainActivity : Activity() {
         val s = FrostiService.instance
         setLink(s?.connected == true, null)
         setState(if (s?.connected == true) s.lastState else "offline")
-        if (linked) { send(JSONObject().put("type", "memory")); requestStats() }
+        if (linked) requestStats()
         h.post(ticker); bumpIdle()
         OsMode.apply(this)
     }
@@ -117,7 +128,7 @@ class MainActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (idle?.visibility == View.VISIBLE) hideIdle() else if (drawer?.visibility == View.VISIBLE) openDrawer(false) else if (current != "home") go("home")
+        if (idle?.visibility == View.VISIBLE) hideIdle() else if (current != "talk") go("talk")
     }
 
     /**
@@ -148,6 +159,42 @@ class MainActivity : Activity() {
         setLink(linked, null); setState(coreState)
     }
 
+    /**
+     * Volume buttons, shown on FROSTI's own bar instead of the system one: while the laptop is playing music they
+     * drive the laptop's volume (the Core replies with the level), otherwise the phone's.
+     */
+    override fun onKeyDown(code: Int, e: android.view.KeyEvent): Boolean {
+        val step = when (code) { android.view.KeyEvent.KEYCODE_VOLUME_UP -> 1; android.view.KeyEvent.KEYCODE_VOLUME_DOWN -> -1; else -> return super.onKeyDown(code, e) }
+        bumpIdle()
+        if (linked && media?.optBoolean("playing") == true && send(JSONObject().put("type", "volume").put("step", step))) return true
+        val am = getSystemService(android.media.AudioManager::class.java)
+        val s = android.media.AudioManager.STREAM_MUSIC
+        am.adjustStreamVolume(s, if (step > 0) android.media.AudioManager.ADJUST_RAISE else android.media.AudioManager.ADJUST_LOWER, 0)  // no FLAG_SHOW_UI
+        showVolume("Phone", am.getStreamVolume(s) * 100 / am.getStreamMaxVolume(s))
+        return true
+    }
+
+    private lateinit var volBox: View
+    private lateinit var volWho: TextView
+    private lateinit var volMeter: Meter
+    private lateinit var volPct: TextView
+    private val hideVol = Runnable { volBox.animate().alpha(0f).setDuration(250).withEndAction { volBox.visibility = View.GONE }.start() }
+
+    private fun buildVolume(): View {
+        volWho = label("", Ui.MUTED); volMeter = Meter(this, warn = false); volPct = text(13f).apply { gravity = Gravity.END }
+        volBox = hbox().apply {
+            background = pill(Ui.SURFACE, dp(1), Ui.LINE, dpf(16f)); setPadding(dp(16), dp(12), dp(16), dp(12)); visibility = View.GONE
+            addView(volWho, lp(dp(64), -2)); addView(volMeter, lp(dp(180), dp(4))); addView(volPct, lp(dp(48), -2))
+        }
+        return volBox
+    }
+
+    private fun showVolume(who: String, level: Int) {
+        volWho.text = who.uppercase(); volMeter.value = level / 100f; volPct.text = "$level%"
+        volBox.animate().cancel(); volBox.alpha = 1f; volBox.visibility = View.VISIBLE
+        h.removeCallbacks(hideVol); h.postDelayed(hideVol, 1500)
+    }
+
     override fun dispatchTouchEvent(e: MotionEvent): Boolean {
         if (e.action == MotionEvent.ACTION_DOWN) bumpIdle()
         return super.dispatchTouchEvent(e)
@@ -167,8 +214,8 @@ class MainActivity : Activity() {
         if (ssid != null && password != null) {
             // shortcut: legacy Wi-Fi provisioning is for this Android 9 phone; use network suggestions on Android 10+.
             if (android.os.Build.VERSION.SDK_INT >= 29) {
-                AlertDialog.Builder(this).setMessage("Join $ssid in Wi-Fi settings to finish wireless pairing.")
-                    .setPositiveButton("OK", null).show()
+                styled(AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert).setMessage("Join $ssid in Wi-Fi settings to finish wireless pairing.")
+                    .setPositiveButton("OK", null).create())
             } else {
                 val wifi = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
                 wifi.isWifiEnabled = true
@@ -180,8 +227,8 @@ class MainActivity : Activity() {
                 val id = wifi.addNetwork(network)
                 if (id >= 0) prefs.edit().putInt("wifi_network_id", id).apply()
                 if (id < 0 || !wifi.enableNetwork(id, true)) {
-                    AlertDialog.Builder(this).setMessage("Could not join $ssid. Select it in Wi-Fi settings.")
-                        .setPositiveButton("OK", null).show()
+                    styled(AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert).setMessage("Could not join $ssid. Select it in Wi-Fi settings.")
+                        .setPositiveButton("OK", null).create())
                 }
             }
         }
@@ -193,7 +240,7 @@ class MainActivity : Activity() {
         when (m.optString("type")) {
             "conn" -> {
                 setLink(m.optBoolean("ok"), m.optString("why"))
-                if (m.optBoolean("ok")) { send(JSONObject().put("type", "memory")); requestStats() }
+                if (m.optBoolean("ok")) requestStats()
             }
             "state" -> {
                 setState(m.optString("state"))
@@ -201,7 +248,8 @@ class MainActivity : Activity() {
             }
             "stats" -> { stats = m; val ps = m.optJSONObject("phone_stats")
                 frosti.stats(m.optDouble("cpu").takeIf { !it.isNaN() }, ps?.optInt("battery", -1)?.takeIf { it >= 0 }, ps?.optBoolean("charging") == true) }
-            "memory" -> memory = m
+            "now_playing" -> { media = m.optJSONObject("media"); mediaAt = android.os.SystemClock.elapsedRealtime(); idleMedia() }
+            "volume" -> showVolume("Laptop", m.optInt("level"))
             "activity" -> frosti.activity(m.optString("name"), m.optJSONObject("args") ?: JSONObject())
             "reply" -> frosti.reply(if (m.isNull("tool")) null else m.optString("tool"), m.optString("detail"),
                 m.optDouble("seconds", 0.0), spoken = stats?.optBoolean("voice") != false)
@@ -213,6 +261,8 @@ class MainActivity : Activity() {
 
     private fun setLink(ok: Boolean, why: String?) {
         linked = ok
+        // display stays on only while linked to the laptop; offline, the phone sleeps as usual
+        if (ok) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         linkDot.set(if (ok) Ui.ACCENT else if (why == "bad token") Ui.AMBER else Ui.DIM)
         linkText.text = if (ok) "Linked" else if (why == "bad token") "Bad token" else "Offline"
         frosti.setLink(ok, why == "bad token")
@@ -227,8 +277,6 @@ class MainActivity : Activity() {
         if (s == "thinking" && coreState != "thinking") verb = verbs.random()  // Claude Code-style, one per think
         coreState = if (!linked && s != "error") "offline" else s
         if (linked) frosti.state(coreState)  // offline / error come from the link (setLink)
-        brand.color = when (coreState) { "offline" -> Ui.DIM; "error" -> Ui.AMBER; else -> Ui.ACCENT }
-        brand.spinning = coreState == "thinking" || coreState == "listening" || coreState == "speaking"
         screens.values.forEach { it.onEvent(JSONObject().put("type", "ui_state")) }
     }
 
@@ -243,6 +291,16 @@ class MainActivity : Activity() {
 
     // ---------- actions screens use ----------
     fun send(m: JSONObject): Boolean = FrostiService.instance?.send(m) == true
+
+    fun timer(minutes: String, label: String = "") {
+        val result = Actions(this).run("set_timer", JSONObject().put("minutes", minutes).put("label", label))
+        android.widget.Toast.makeText(this, result, android.widget.Toast.LENGTH_LONG).show()
+    }
+
+    fun showTimers() {
+        val result = Actions(this).run("show_timers", JSONObject())
+        android.widget.Toast.makeText(this, result, android.widget.Toast.LENGTH_LONG).show()
+    }
 
     /** A typed or tapped command: goes through the Core's router like speech, and shows up in Talk. */
     fun command(text: String, show: Boolean = true) {
@@ -274,26 +332,29 @@ class MainActivity : Activity() {
     fun applyMotion() = cores.forEach { it.reduceMotion = reduceMotion() }
     // either way up; changing it recreates the activity, which rebuilds the layout
     val portrait get() = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
-    fun applyOrientation() { requestedOrientation = if (prefs.getBoolean("portrait", false)) ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE }
+    fun applyOrientation() { requestedOrientation = if (prefs.getBoolean("portrait", false)) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }  // fixed: no auto-rotate
 
     fun go(name: String) {
-        openDrawer(false)
+        markNav(name)
         if (name == current || !makers.containsKey(name)) return
         screens[current]!!.view.visibility = View.GONE
         current = name
         val v = screen(name).view
         v.visibility = View.VISIBLE; v.alpha = 0f; v.translationY = dpf(12f)
         v.animate().alpha(1f).translationY(0f).setDuration(180).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
-        navItems.forEach { (k, p) ->
-            p.first.background = if (k == name) pill(Ui.SURFACE, radius = dpf(10f)) else null
-            p.second.setTextColor(if (k == name) Ui.TEXT else Ui.MUTED)
-        }
         screens[name]!!.onShow()
+    }
+
+    private fun markNav(name: String) = navItems.forEach { (k, n) ->
+        n.first.background = if (k == name) pill(Ui.SURFACE, radius = dpf(12f)) else null
+        n.second.color = if (k == name) Ui.ACCENT else Ui.MUTED; n.second.invalidate()
+        n.third.setTextColor(if (k == name) Ui.TEXT else Ui.MUTED)
     }
 
     fun styled(d: AlertDialog, amber: Boolean = false): AlertDialog {
         d.show()
         d.window?.setBackgroundDrawable(pill(Ui.SURFACE, dp(1), if (amber) Ui.AMBER else Ui.LINE, dpf(18f)))
+        d.findViewById<TextView>(android.R.id.message)?.apply { setTextColor(Ui.TEXT); typeface = Ui.LIGHT }  // Material's grey body text otherwise
         for (w in intArrayOf(AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE, AlertDialog.BUTTON_NEUTRAL))
             d.getButton(w)?.setTextColor(if (w == AlertDialog.BUTTON_POSITIVE) (if (amber) Ui.AMBER else Ui.ACCENT) else Ui.MUTED)
         return d
@@ -382,41 +443,41 @@ class MainActivity : Activity() {
         val id = m.getInt("id")
         val tier3 = m.optInt("tier") >= 3
         val d = AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
-            .setCustomTitle(dialogTitle(if (tier3) "Confirm · irreversible" else "Confirm action", Ui.AMBER))
+            .setCustomTitle(dialogTitle(if (tier3) "Confirm · irreversible" else "Confirm action", Ui.ACCENT))
             .setMessage(m.optString("summary"))
             .setPositiveButton("Do it") { _, _ -> frosti.decided(true); FrostiService.instance?.answerConfirm(id, true) }
             .setNegativeButton("Cancel") { _, _ -> frosti.decided(false); FrostiService.instance?.answerConfirm(id, false) }
             .setOnCancelListener { frosti.decided(false); FrostiService.instance?.answerConfirm(id, false) }
             .create()
-        styled(d, amber = true)
+        styled(d)
         frosti.confirm()  // the penguin holds up its sign until the answer
     }
 
-    // ---------- layout: Claude-app style, sidebar on the left (landscape) or header + bottom nav (portrait) ----------
+    // ---------- layout: a slim icon rail on the left (landscape), or a header and bottom tabs (portrait) ----------
+    private var side: List<View> = emptyList()  // landscape rail and its divider, hidden while typing
     private fun build(): View {
         root = FrameLayout(this).apply { setBackgroundColor(Ui.BG) }
         content = FrameLayout(this)
+        side = emptyList()
         if (portrait) {
-            // Claude mobile: ☰ opens the sidebar as a drawer, the title sits in the middle, new chat on the right
             val col = vbox()
-            col.addView(FrameLayout(this).apply {
-                setPadding(dp(8), dp(6), dp(8), dp(6))
-                addView(text(22f, Ui.TEXT).apply { text = "☰"; gravity = Gravity.CENTER }.pressable { openDrawer(true) },
-                    FrameLayout.LayoutParams(dp(44), dp(44), Gravity.START or Gravity.CENTER_VERTICAL))
-                addView(brandRow(), FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
-                addView(plusButton(18f).pressable { newChat() },
-                    FrameLayout.LayoutParams(dp(34), dp(34), Gravity.END or Gravity.CENTER_VERTICAL).apply { marginEnd = dp(5) })
+            col.addView(hbox().apply {
+                setPadding(dp(16), dp(8), dp(10), dp(8))
+                addView(text(18f, Ui.TEXT, Ui.SERIF).apply { text = "Frosti" }, lp(0, -2, 1f))
+                addView(linkRow(), lp(-2, -2))
             }, lp())
             col.addView(content, lp(-1, 0, 1f))
+            col.addView(View(this).apply { setBackgroundColor(Ui.LINE) }, lp(-1, 1))
+            col.addView(hbox().apply {
+                setBackgroundColor(Ui.RAIL); setPadding(dp(4), dp(4), dp(4), dp(4))
+                for ((key, name, icon) in nav) addView(navItem(key, name, icon), lp(0, -2, 1f))
+            }, lp())
             root.addView(col)
-            scrim = View(this).apply { setBackgroundColor(0x99000000.toInt()); visibility = View.GONE; setOnClickListener { openDrawer(false) } }
-            root.addView(scrim, FrameLayout.LayoutParams(-1, -1))
-            drawer = sidebar(header = false).apply { visibility = View.GONE; isClickable = true }
-            root.addView(drawer, FrameLayout.LayoutParams(dp(260), -1))
         } else {
-            drawer = null
             val row = hbox().apply { gravity = Gravity.NO_GRAVITY }
-            row.addView(sidebar(), lp(dp(150), -1))
+            side = listOf(rail(), View(this).apply { setBackgroundColor(Ui.LINE) })
+            row.addView(side[0], lp(dp(68), -1))
+            row.addView(side[1], lp(1, -1))
             row.addView(content, lp(0, -1, 1f))
             root.addView(row)
         }
@@ -426,72 +487,60 @@ class MainActivity : Activity() {
         val box = content
         // delayed, not posted: a plain post runs before the first frame and the rotation waits for it
         makers.keys.forEachIndexed { i, k -> h.postDelayed({ if (content === box) screen(k) }, 800L + i * 120) }
+        markNav(current)
         root.addView(buildIdle())
+        root.addView(buildVolume(), FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(16) })
         return root
     }
 
-    private val makers = linkedMapOf<String, () -> Screen>("home" to { HomeScreen(this) }, "talk" to { TalkScreen(this) },
-        "system" to { SystemScreen(this) }, "tools" to { ToolsScreen(this) }, "memory" to { MemoryScreen(this) }, "setup" to { SetupScreen(this) })
+    private val makers = linkedMapOf<String, () -> Screen>("talk" to { TalkScreen(this) },
+        "music" to { MusicScreen(this) }, "processes" to { ProcessesScreen(this) },
+        "performance" to { PerformanceScreen(this) }, "todo" to { TodoScreen(this) }, "setup" to { SetupScreen(this) })
 
     private fun screen(name: String): Screen = screens.getOrPut(name) {
         makers[name]!!().also { it.view.visibility = View.GONE; content.addView(it.view) }
     }
 
-    private val nav = listOf("talk" to "Chat", "system" to "System", "tools" to "Tools", "memory" to "Memory", "setup" to "Setup")
+    private val nav = listOf(Triple("talk", "Chat", "chat"), Triple("music", "Music", "note"), Triple("processes", "Processes", "list"),
+        Triple("performance", "Performance", "pulse"), Triple("todo", "To-do", "check"), Triple("setup", "Setup", "sliders"))
 
-    private fun brandRow(): View = hbox().apply {
-        brand = SparkView(this@MainActivity)
-        addView(brand, lp(dp(18), dp(18)).margins(r = dp(8)))
-        addView(text(18f, Ui.TEXT, Ui.SERIF).apply { text = "Frosti" })
-    }
-
-    private fun linkRow(fill: Boolean): View = hbox().apply {
+    /** Link dot and phone battery: one line in the portrait header, stacked at the foot of the rail. */
+    private fun linkRow(stacked: Boolean = false): View = (if (stacked) vbox().apply { gravity = Gravity.CENTER_HORIZONTAL } else hbox()).apply {
         linkDot = Dot(this@MainActivity)
-        addView(linkDot, lp(dp(6), dp(6)).margins(r = dp(6)))
-        linkText = text(12f, Ui.MUTED).apply { text = "Offline" }
-        addView(linkText, if (fill) lp(0, -2, 1f) else lp(-2, -2).margins(r = dp(10)))
-        battText = text(12f, Ui.MUTED).apply { text = "—" }
-        addView(battText)
+        addView(linkDot, lp(dp(6), dp(6)).margins(r = if (stacked) 0 else dp(6), b = if (stacked) dp(5) else 0))
+        linkText = text(if (stacked) 10f else 12f, Ui.MUTED).apply { text = "Offline" }
+        addView(linkText, lp(-2, -2).margins(r = if (stacked) 0 else dp(10)))
+        battText = text(if (stacked) 10f else 12f, Ui.MUTED).apply { text = "—" }
+        addView(battText, lp(-2, -2).margins(t = if (stacked) dp(4) else 0))
     }
 
-    private fun plusButton(size: Float): View = FrameLayout(this).apply {
-        background = pill(Ui.ACCENT)
-        addView(text(size, Ui.BG, Ui.MEDIUM).apply { text = "+" }, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
-    }
-
-    private var drawer: View? = null
-    private var scrim: View? = null
-
-    private fun openDrawer(open: Boolean) {
-        val d = drawer ?: return
-        if (open == (d.visibility == View.VISIBLE)) return
-        scrim?.visibility = if (open) View.VISIBLE else View.GONE
-        if (open) { d.visibility = View.VISIBLE; d.translationX = -dpf(260f); d.animate().translationX(0f).setDuration(180).withEndAction(null).start() }
-        else d.animate().translationX(-dpf(260f)).setDuration(150).withEndAction { d.visibility = View.GONE }.start()
-    }
-
-    private fun sidebar(header: Boolean = true): View = vbox().apply {
-        setBackgroundColor(Ui.RAIL)
-        setPadding(dp(10), dp(12), dp(10), dp(10))
-        if (header) addView(brandRow().apply { setPadding(dp(6), 0, 0, dp(12)) })
-        val newChat = hbox().apply { setPadding(dp(6), dp(7), dp(6), dp(7)) }
-        newChat.addView(plusButton(15f), lp(dp(22), dp(22)).margins(r = dp(10)))
-        newChat.addView(text(14f, Ui.TEXT).apply { text = "New chat" })
-        addView(newChat.pressable { newChat() }, lp().margins(b = dp(6)))
-        for ((key, name) in nav) {
-            val t = text(14f, Ui.MUTED).apply { text = name; setPadding(dp(10), dp(8), dp(10), dp(8)) }
-            navItems[key] = t to t
-            addView(t.pressable { go(key) }, lp())
+    /** One nav target: icon over a small label; the current one sits on a raised pill with a clay icon. */
+    private fun navItem(key: String, name: String, icon: String): View {
+        val box = vbox().apply { gravity = Gravity.CENTER_HORIZONTAL; setPadding(0, dp(8), 0, dp(7)) }
+        val ic = Icon(this, icon, Ui.MUTED)
+        box.addView(ic, lp(dp(20), dp(20)))
+        val t = text(9.5f, Ui.MUTED).apply {
+            text = name; gravity = Gravity.CENTER; maxLines = 1
+            setAutoSizeTextTypeUniformWithConfiguration(7, 10, 1, android.util.TypedValue.COMPLEX_UNIT_SP)  // "Performance" fits the rail
         }
-        addView(View(context), lp(-1, 0, 1f))
-        addView(linkRow(fill = true).apply { setPadding(dp(6), 0, 0, 0) })
+        box.addView(t, lp(-1, dp(14)).margins(t = dp(4)))
+        navItems[key] = Triple(box, ic, t)
+        return box.pressable { go(key) }
     }
 
-    /** Claude's "New chat": back to Home, a clear Talk log, and the Core drops the follow-up context. */
-    private fun newChat() {
+    private fun rail(): View = vbox().apply {
+        setBackgroundColor(Ui.RAIL); gravity = Gravity.CENTER_HORIZONTAL
+        setPadding(dp(6), dp(12), dp(6), dp(8))
+        for ((key, name, icon) in nav) addView(navItem(key, name, icon), lp().margins(b = dp(6)))
+        addView(View(context), lp(-1, 0, 1f))
+        addView(linkRow(stacked = true).also { linkText.visibility = View.GONE })  // no room: the dot says it, the idle clock spells it out
+    }
+
+    /** Claude's "New chat": a clear Chat (back to its greeting), and the Core drops the follow-up context. */
+    fun newChat() {
         send(JSONObject().put("type", "new"))
         screens["talk"]?.onEvent(JSONObject().put("type", "new"))
-        go("home")
+        go("talk")
     }
 
     // ---------- ticker: header battery, live screens ----------
@@ -560,24 +609,62 @@ class MainActivity : Activity() {
         col.addView(TextClock(this).apply {
             format24Hour = "EEEE, d MMMM"; format12Hour = "EEEE, d MMMM"; textSize = 17f; typeface = Ui.SERIF; setTextColor(Ui.MUTED)
         }, lp(-2, -2).margins(t = dp(4)))
+        // now playing: art and track; a touch here opens Music, anywhere else just wakes
+        idleMusic = text(16f, Ui.TEXT, Ui.SERIF).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; maxWidth = dp(300) }
+        idleArtist = text(13f, Ui.MUTED).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; maxWidth = dp(300) }
+        idleArt = android.widget.ImageView(this).apply { scaleType = android.widget.ImageView.ScaleType.CENTER_CROP; clipToOutline = true; background = pill(Ui.SURFACE, radius = dpf(8f)) }
+        idleSong = hbox().apply {
+            background = pill(Ui.SURFACE, dp(1), Ui.LINE, dpf(14f)); setPadding(dp(8), dp(8), dp(16), dp(8))
+            addView(idleArt, lp(dp(52), dp(52)).margins(r = dp(12)))
+            addView(vbox().apply {
+                addView(label("Now playing", Ui.ACCENT, 9.5f))
+                addView(idleMusic, lp(-2, -2).margins(t = dp(4)))
+                addView(idleArtist, lp(-2, -2).margins(t = dp(2)))
+            })
+        }
+        idleSong.pressable { hideIdle(); go("music") }
+        col.addView(idleSong, lp(-2, -2).margins(t = dp(16)))
         idleInfo = label("", Ui.DIM)
         col.addView(idleInfo, lp(-2, -2).margins(t = dp(18)))
         box.addView(col)
         o.addView(box, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))  // full width: the clock never clips when digits widen
         o.setOnClickListener { hideIdle() }
         idle = o
+        idleArtKey = null  // a rebuilt sleep screen has an empty art view
+        idleMedia()
         return o
     }
 
+    private lateinit var idleMusic: TextView
+    private lateinit var idleArtist: TextView
+    private lateinit var idleArt: android.widget.ImageView
+    private lateinit var idleSong: View
+    private var idleArtKey: String? = null
+
+    /** While the laptop plays something, the sleep screen shows its art and track. */
+    private fun idleMedia() {
+        val m = media?.takeIf { it.optBoolean("playing") }
+        idleSong.visibility = if (m == null) View.GONE else View.VISIBLE
+        if (m == null) return
+        idleMusic.text = m.optString("title"); idleArtist.text = m.optString("artist")
+        val key = if (m.isNull("art")) null else m.optString("art")
+        if (key != idleArtKey) {  // decode only when the track's art changes
+            idleArtKey = key
+            val bytes = key?.substringAfter("base64,", "")?.let { runCatching { android.util.Base64.decode(it, android.util.Base64.DEFAULT) }.getOrNull() }
+            idleArt.setImageBitmap(bytes?.let { android.graphics.BitmapFactory.decodeByteArray(it, 0, it.size) })
+        }
+    }
+
     private fun showIdle() {
-        if (coreState == "listening" || coreState == "thinking" || coreState == "speaking") { bumpIdle(); return }
+        // the Music panel is the desk display: it stays up instead of the idle screen
+        if (coreState == "listening" || coreState == "thinking" || coreState == "speaking" || current == "music" || SplitKeyboard.open) { bumpIdle(); return }
         val o = idle ?: return
         if (o.visibility == View.VISIBLE) return
         idleInfo.text = "${linkText.text} · ${battText.text}"
         o.alpha = 0f; o.visibility = View.VISIBLE; frosti.sleep(true)
         o.animate().alpha(1f).setDuration(600).start()
-        if (prefs.getBoolean("idle_dim", true))
-            window.attributes = window.attributes.apply { screenBrightness = 0.05f }
+        if (prefs.getBoolean("idle_dim", false))
+            window.attributes = window.attributes.apply { screenBrightness = 0.3f } // lower and this AMOLED tints the charcoal blue
     }
 
     fun hideIdle() {

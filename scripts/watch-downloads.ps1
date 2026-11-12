@@ -1,9 +1,7 @@
 # Live view of fetch-models.ps1 progress. Ctrl-C to stop.
 param([string]$Root = 'D:\frosti-models')
 $total = [ordered]@{
-  'Qwen3.5-4B-Q4_K_M.gguf' = 2614
   'sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2' = 460
-  'gemma-4-E4B-it-Q4_0.gguf' = 4378
   'vits-piper-en_GB-northern_english_male-medium.tar.bz2' = 64
   'kokoro-en-v0_19.tar.bz2' = 305
 }

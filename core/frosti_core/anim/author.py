@@ -21,8 +21,9 @@ PALETTE = {"K": "#141413", "W": "#f3f1ea", "O": "#e8853d", "L": "#c8c2b8", "G": 
 BODY = {"body": [2, 0, 12, 7], "flippers": [[0, 3, 2, 2], [14, 3, 2, 2]], "belly": [5, 5, 6, 2],
         "beak": [7, 4, 2, 1], "feet": [[4, 7, 2, 1], [10, 7, 2, 1]], "eyes": [4, 11]}
 # side-on (facing right), used while frame side=1: one eye, beak, and both flippers reaching right; fl[0] is the
-# far flipper (shaded "fc" D, lower, reaching further) and fl[1] the near one, like Clawd's lit and shaded arms
-BODY["side"] = {"body": [3, 0, 9, 7], "flippers": [[13, 5, 3, 1], [12, 4, 2, 1]], "fc": ["D", "K"], "belly": [10, 4, 2, 3],
+# far flipper (shaded "fc" D, lower, reaching further) and fl[1] the near one (lit G: black vanishes on the dark
+# stage), like Clawd's lit and shaded arms
+BODY["side"] = {"body": [3, 0, 9, 7], "flippers": [[14, 5, 3, 1], [12, 5, 3, 1]], "fc": ["D", "G"], "belly": [10, 4, 2, 3],
                 "beak": [12, 3, 2, 1], "feet": [[6, 7, 2, 1], [9, 7, 2, 1]], "eyes": [8]}
 REST = dict(side=0, dx=0, dy=0, crouch=0, lx=0, ly=0, eyes="open", fl=[0, 0], ft=[0, 0], beak=0, props=[], fx=[])
 EYES = ["open", "blink", "half", "tall", "up", "down", "happy", "closed", "x", "wide", "wink", "confused"]
@@ -195,7 +196,8 @@ anim("permission", "Asking permission", "state", 90, glow="Y", src="[T] Alert on
 lap = lambda y=3: P("lap_open", 13, y)
 shut = lambda x, y: P("lap_shut", x, y)
 front = dict(side=0, crouch=0)
-strike_near, strike_far = dict(fl=(0, 1), props=[lap(2.5)]), dict(fl=(1, -0.5), props=[lap(2.5)])
+# one flipper slams down while the other lifts, so both read as separate hands; the laptop bounces on every hit
+strike_far, strike_near = dict(fl=(0.5, -1), props=[lap(2.5)]), dict(fl=(-1, 0.5))
 anim("typing", "Typing on a laptop", "state", 40,
      src="[C] Clawd's laptop emote in the Claude app: toss, sit, two-handed typing, laptop bouncing, fling",
      trigger="state thinking (language model working), the whole time, like Clawd at its laptop",
@@ -204,8 +206,7 @@ anim("typing", "Typing on a laptop", "state", 40,
             F(1, **front, eyes="up", props=[shut(16, -2)]), F(1, **front, eyes="up", props=[shut(15, 2)]),
             F(1, side=1, crouch=0.25, props=[shut(13, 7)]), F(2, props=[shut(13, 7)]), F(1, props=[P("lap_half", 13, 5)]),
             F(1, eyes="wide")],
-     loop=[F(1), F(1, **strike_near), F(1), F(1, **strike_far), F(1), F(1, **strike_near), F(1), F(1, **strike_far), F(1),
-           F(1, **strike_near), F(1, eyes="blink"), F(1)],
+     loop=[*[F(1, **s) for s in (strike_far, strike_near) * 6], F(1, eyes="blink"), F(1)],
      exit=[F(1, props=[P("lap_half", 13, 5)]), F(1, props=[shut(13, 7)]), F(2, crouch=0, props=[shut(13, 7)]),
            F(1, **front, props=[shut(15, 3)]), F(1, **front, eyes="happy", props=[shut(18, -1)]),
            F(1, **front, eyes="happy", props=[shut(20, -4)]), F(1, **front, props=[])])
@@ -289,17 +290,16 @@ anim("wave", "Waving", "reaction", 65, repeat=2, src="[C] Waving",
      loop=[F(2), F(2, fl=(0, -2)), F(2), F(2, fl=(0, -2), eyes="wink"), F(1)],
      exit=[F(1, fl=(0, -2), eyes="open"), F(1, fl=(0, -1), eyes="open", dx=0)])
 
-mon = lambda name="monitor_side": P(name, 15, -1)
-desk = [P("desk_top", 12, 6), P("keys", 13, 5)]
-type_near, type_far = dict(fl=(0, 0.5)), dict(fl=(0.5, -0.5))
+mon = lambda name="monitor_side": P(name, 15, 0)
+desk = [P("desk_top", 12, 7), P("keys", 13, 6)]
+type_far, type_near = dict(fl=(0, -1)), dict(fl=(-1, 0))
 anim("desktop", "Typing at a desktop", "activity", 50, src="[C] Desktop: turns and sits at a desktop computer",
      trigger="tool run_powershell",
      pose=dict(side=1, crouch=0.5, eyes="half", props=[*desk, mon()]),
      enter=[F(1, side=0, crouch=0, eyes="open", props=[*desk]), F(1, side=1, crouch=0.25, eyes="open", props=[*desk]),
             F(2, eyes="wide")],
-     loop=[F(1), F(1, **type_near, props=[*desk, mon("monitor_side2")]), F(1), F(1, **type_far),
-           F(1, **type_near), F(1, props=[*desk, mon("monitor_side2")]), F(1, **type_far), F(1),
-           F(1, **type_near, props=[*desk, mon("monitor_side2")]), F(1, eyes="blink"), F(1, **type_far), F(1)],
+     loop=[*[F(1, **(type_far if i % 2 == 0 else type_near), **({"props": [*desk, mon("monitor_side2")]} if i % 4 == 1 else {}))
+             for i in range(12)], F(1, eyes="blink"), F(1)],
      exit=[F(1, eyes="open", props=[*desk]), F(1, side=0, crouch=0, eyes="open", props=[*desk])])
 
 anim("sway", "Swaying", "pastime", 20, repeat=2, src="[C] Swaying", trigger="idle pastime",
@@ -378,8 +378,8 @@ MAP = {
     "tools": {"open_app": "point", "get_status": "look_around", "set_brightness": "point", "set_volume": "point",
               "kill_process": "point", "open_vscode": "typing", "git": "desktop", "git:pull": "desktop",
               "git:commit": "desktop", "git:push": "desktop", "run_project": "desktop", "run_project:test": "desktop",
-              "run_project:build": "desktop", "run_powershell": "desktop", "set_timer": "point",
-              "remember": "typing", "recall": "look_around", "describe_screen": "look_around", "forget": "turn_around",
+              "run_project:build": "desktop", "run_powershell": "desktop", "power": "desktop", "set_timer": "point",
+              "remember": "typing", "tasks": "typing", "recall": "look_around", "describe_screen": "look_around", "forget": "turn_around",
               "play_music": "hula", "media_control": "dance"},
     "reactions": {"done": "done", "celebrate": "celebrate", "chat": "wave", "failed": "facepalm",
                   "notify": "wave", "poke": "excited", "surprised": "excited", "glitch": "disappointed",

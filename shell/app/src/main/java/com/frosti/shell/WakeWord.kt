@@ -26,8 +26,10 @@ class WakeWord(assets: AssetManager, commands: String = "") {
     fun command(pcm: ByteArray, length: Int): String? = commandStream?.let { spot(it, pcm, length) }
 
     private fun spot(stream: com.k2fsa.sherpa.onnx.OnlineStream, pcm: ByteArray, length: Int): String? {
+        // shortcut: fixed x8 gain, measured speech reaches the spotter at ~-35 dBFS from across the room;
+        // close/loud speech clips. Upgrade to a capped per-block AGC if close-up wakes start failing.
         val samples = FloatArray(length / 2) { i ->
-            (((pcm[i * 2 + 1].toInt() shl 8) or (pcm[i * 2].toInt() and 255)).toShort()) / 32768f
+            ((((pcm[i * 2 + 1].toInt() shl 8) or (pcm[i * 2].toInt() and 255)).toShort()) / 32768f * 8f).coerceIn(-1f, 1f)
         }
         stream.acceptWaveform(samples, 16000)
         while (spotter.isReady(stream)) {

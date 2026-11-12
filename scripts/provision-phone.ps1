@@ -25,6 +25,10 @@ if ($LASTEXITCODE -ne 0) { throw 'APK installation failed; pairing was not chang
 & $adb shell pm grant $pkg android.permission.RECORD_AUDIO
 & $adb shell appops set $pkg WRITE_SETTINGS allow
 & $adb shell dumpsys deviceidle whitelist +$pkg
+& $adb shell ime enable "$pkg/.SplitKeyboard"  # split keyboard for landscape typing
+& $adb shell ime set "$pkg/.SplitKeyboard"
+& $adb shell settings put system surface_palm_swipe 0  # Samsung palm-swipe screenshot fires while thumb-typing
+& $adb shell settings put system enable_smart_capture 0
 if (-not $Wireless) { & $adb reverse tcp:8765 tcp:8765 }
 if ($OsMode) {
   & $adb shell dpm set-device-owner "$pkg/.FrostiAdmin"

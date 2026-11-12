@@ -12,11 +12,24 @@ import android.os.Environment
 import android.os.StatFs
 import android.provider.MediaStore
 import android.provider.Settings
+import android.provider.AlarmClock
 import android.view.KeyEvent
 import org.json.JSONObject
 
 /** Phone tools the Core forwards here. Each returns the sentence FROSTI speaks. */
 class Actions(private val ctx: Context) {
+
+    companion object {
+        internal fun timerIntent(minutes: Double, label: String): Intent {
+            val seconds = minutes * 60
+            require(seconds.isFinite() && seconds >= 1 && seconds <= Int.MAX_VALUE) { "Timer duration must be at least one second and fit in seconds." }
+            return Intent(AlarmClock.ACTION_SET_TIMER)
+                .putExtra(AlarmClock.EXTRA_LENGTH, seconds.toInt())
+                .putExtra(AlarmClock.EXTRA_MESSAGE, label)
+                .putExtra(AlarmClock.EXTRA_SKIP_UI, true)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+    }
 
     fun run(name: String, args: JSONObject): String = try {
         when (name) {
@@ -26,6 +39,15 @@ class Actions(private val ctx: Context) {
             "set_volume" -> volume(args.optInt("level"))
             "play_music" -> playMusic(args.optString("query"))
             "media_control" -> media(args.optString("action"))
+            "set_timer" -> {
+                val intent = timerIntent(args.optDouble("minutes"), args.optString("label"))
+                if (intent.resolveActivity(ctx.packageManager) == null) "No Clock app is available to set a timer."
+                else { ctx.startActivity(intent); "Timer started on the phone." }
+            }
+            "show_timers" -> {
+                ctx.startActivity(Intent(AlarmClock.ACTION_SHOW_TIMERS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                "Here are your phone timers."
+            }
             else -> "The phone can't do $name yet."
         }
     } catch (e: Exception) {
@@ -37,6 +59,7 @@ class Actions(private val ctx: Context) {
         val (tool, arg) = label.split("=", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
         return when (tool) {
             "time" -> "It's ${android.text.format.DateFormat.getTimeFormat(ctx).format(java.util.Date())}."
+            "show_timers" -> run(tool, JSONObject())
             "volume_step" -> {
                 ctx.getSystemService(AudioManager::class.java).adjustStreamVolume(AudioManager.STREAM_MUSIC,
                     if (arg == "1") AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
@@ -44,7 +67,7 @@ class Actions(private val ctx: Context) {
             }
             else -> {
                 val key = mapOf("get_status" to "metric", "set_volume" to "level", "set_brightness" to "level",
-                    "media_control" to "action", "open_app" to "name")[tool] ?: return "I can't do that offline."
+                    "media_control" to "action", "open_app" to "name", "set_timer" to "minutes")[tool] ?: return "I can't do that offline."
                 run(tool, JSONObject().put(key, arg))
             }
         }

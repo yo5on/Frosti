@@ -1,9 +1,7 @@
 @echo off
-rem `frosti` from any cmd/PowerShell: start the Core if it isn't running, then open the laptop console.
-powershell -NoProfile -Command ^
-  "if (-not (Get-NetTCPConnection -State Listen -LocalPort 8765 -ErrorAction SilentlyContinue)) {" ^
-  "  Write-Host 'Starting FROSTI...'; Start-ScheduledTask -TaskName 'FROSTI wireless';" ^
-  "  for ($i = 0; $i -lt 60 -and -not (Get-NetTCPConnection -State Listen -LocalPort 8765 -ErrorAction SilentlyContinue); $i++) { Start-Sleep 1 }" ^
-  "  if ($i -ge 60) { Write-Host 'FROSTI did not start; see E:\sparky\data\core-error.log'; exit 1 } }"
-if errorlevel 1 exit /b 1
-start "" http://127.0.0.1:8765/
+rem Type "frosti" anywhere: (re)starts Core and the hotspot through the FROSTI wireless task.
+schtasks /end /tn "FROSTI wireless" >nul 2>&1
+rem an old Core would keep port 8765 and the new one would fail to start
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"name='python.exe'\" | Where-Object CommandLine -match 'frosti_core' | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
+schtasks /run /tn "FROSTI wireless" >nul || (echo Could not start the FROSTI wireless task. & exit /b 1)
+echo FROSTI is starting. Console: http://127.0.0.1:8765/

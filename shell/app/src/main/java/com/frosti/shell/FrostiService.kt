@@ -57,7 +57,7 @@ class FrostiService : Service() {
     }
 
     private val main = Handler(Looper.getMainLooper())
-    private val http = OkHttpClient.Builder().pingInterval(15, TimeUnit.SECONDS).build()
+    private val http = OkHttpClient.Builder().connectTimeout(3, TimeUnit.SECONDS).pingInterval(15, TimeUnit.SECONDS).build()
     @Volatile private var ws: WebSocket? = null
     @Volatile var connected = false; private set
     @Volatile private var running = true
@@ -69,6 +69,7 @@ class FrostiService : Service() {
     @Volatile var lastState = "offline"; private set
     @Volatile private var streaming = false
     private var failures = 0
+    private var lastReply = 0L
     private var wifiNetwork: Network? = null
     private var wifiAddresses = ""
     private val retry = Runnable { connect() }
@@ -185,7 +186,7 @@ class FrostiService : Service() {
         ws = networkClient.newWebSocket(Request.Builder().url(url).build(), object : WebSocketListener() {
             override fun onOpen(w: WebSocket, r: Response) { main.post {
                 if (ws !== w) { w.cancel(); return@post }
-                w.send(JSONObject().put("type", "hello").put("local_wake", true)
+                w.send(JSONObject().put("type", "hello").put("local_wake", true).put("last_reply", lastReply)
                     .put("token", p.getString("token", "")).toString())
             } }
             override fun onMessage(w: WebSocket, text: String) { main.post {
@@ -227,7 +228,7 @@ class FrostiService : Service() {
             }
         }
         main.removeCallbacks(retry)
-        if (running) main.postDelayed(retry, minOf(15000L, failures * 3000L))
+        if (running) main.postDelayed(retry, 3000L)
     }
 
     private fun onCore(m: JSONObject) {
@@ -238,6 +239,7 @@ class FrostiService : Service() {
                 emit(JSONObject().put("type", "conn").put("ok", true))
             }
             "state" -> { lastState = m.optString("state"); streaming = lastState == "listening" }
+            "reply" -> lastReply = maxOf(lastReply, m.optLong("rid"))  // sent in hello: the Core resends one lost in a Wi-Fi drop
             "audio_end" -> playQueue.offer(ByteArray(0))
             "tool" -> {  // run off the socket thread; answer with the spoken result
                 Thread {
@@ -262,8 +264,8 @@ class FrostiService : Service() {
         val sr = 16000
         val min = AudioRecord.getMinBufferSize(sr, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         val rec = try {
-            // VOICE_COMMUNICATION engages the platform echo canceller/noise suppressor
-            AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, sr, AudioFormat.CHANNEL_IN_MONO,
+            // VOICE_RECOGNITION: far-field friendly; VOICE_COMMUNICATION's call-style noise suppression ate distant speech
+            AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, sr, AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, maxOf(min, 3200 * 4))
         } catch (e: SecurityException) {
             emit(JSONObject().put("type", "notify").put("text", "Microphone permission missing.")); return
@@ -284,6 +286,8 @@ class FrostiService : Service() {
         var wasIdle = false
         var commandUntil = 0L  // Satellite mode: listening for a command until this uptime
         val beep = ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 80)
+        // remove mic recordings left by an old wake-tuning debug build
+        listOf("mic.pcm", "mic-prev.pcm").forEach { java.io.File(cacheDir, it).delete() }
         try {
             while (running) {
                 val n = rec.read(buf, 0, buf.size)

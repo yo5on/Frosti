@@ -1,4 +1,4 @@
-"""FROSTI Core: the laptop brain (LLM, fast path, tools, memory, voice, phone gateway)."""
+"""FROSTI Core: the laptop brain (fast path, tools, memory, voice, phone gateway)."""
 import tomllib
 from pathlib import Path
 
